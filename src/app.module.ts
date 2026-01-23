@@ -5,6 +5,7 @@ import { StaffRoleModule } from "@modules/admin/role";
 import { APP_GUARD } from "@nestjs/core";
 import { AuthGuard, AuthModule } from "@modules/auth";
 import { ClsModule } from "nestjs-cls";
+import { StaffModule } from "@modules/admin/staff";
 
 @Module({
 	imports: [
@@ -18,6 +19,7 @@ import { ClsModule } from "nestjs-cls";
 		PermissionModule,
 		StaffRoleModule,
 		AuthModule,
+		StaffModule,
 	],
 	controllers: [],
 	providers: [
