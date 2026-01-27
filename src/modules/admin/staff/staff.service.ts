@@ -70,6 +70,7 @@ export class StaffService {
 			role: AccountRole.STAFF,
 			staffRoleId: dto.staffRoleId,
 			createdById: currentAccountId,
+			avatar: dto.avatar,
 		});
 
 		const saved = await this.accountRepo.save(staff);
@@ -107,6 +108,10 @@ export class StaffService {
 
 		if (dto.ingameUuid !== undefined) {
 			staff.ingameUuid = dto.ingameUuid;
+		}
+
+		if (dto.avatar !== undefined) {
+			staff.avatar = dto.avatar;
 		}
 
 		if (dto.staffRoleId !== undefined) {

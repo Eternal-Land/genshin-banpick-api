@@ -7,6 +7,7 @@ import {
 	IsOptional,
 	IsString,
 	IsStrongPassword,
+	IsUrl,
 } from "class-validator";
 
 export class UpdateStaffRequest {
@@ -19,6 +20,11 @@ export class UpdateStaffRequest {
 	@IsOptional()
 	@IsEmail()
 	email?: string;
+
+	@ApiProperty({ required: false })
+	@IsOptional()
+	@IsUrl()
+	avatar?: string;
 
 	@ApiProperty({ required: false })
 	@IsOptional()

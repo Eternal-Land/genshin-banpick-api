@@ -12,6 +12,9 @@ export class StaffResponse {
 	email: string;
 
 	@ApiProperty({ required: false })
+	avatar?: string;
+
+	@ApiProperty({ required: false })
 	ingameUuid?: string;
 
 	@ApiProperty()
@@ -41,6 +44,7 @@ export class StaffResponse {
 	static fromEntity(entity: AccountEntity) {
 		return Builder(StaffResponse)
 			.id(entity.id)
+			.avatar(entity.avatar)
 			.email(entity.email)
 			.ingameUuid(entity.ingameUuid)
 			.displayName(entity.displayName)

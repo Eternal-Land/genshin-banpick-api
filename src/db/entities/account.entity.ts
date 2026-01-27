@@ -21,6 +21,9 @@ export class AccountEntity {
 	@Column({ name: ColumnNames.Account.email, unique: true })
 	email: string;
 
+	@Column({ name: ColumnNames.Account.avatar, nullable: true, type: "text" })
+	avatar: string;
+
 	@Column({ name: ColumnNames.Account.displayName })
 	displayName: string;
 

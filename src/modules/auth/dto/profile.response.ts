@@ -11,6 +11,9 @@ export class ProfileResponse {
 	email: string;
 
 	@ApiProperty()
+	avatar: string;
+
+	@ApiProperty()
 	ingameUuid: string;
 
 	@ApiProperty()
@@ -28,6 +31,7 @@ export class ProfileResponse {
 	static fromEntity(entity: AccountEntity) {
 		return Builder(ProfileResponse)
 			.id(entity.id)
+			.avatar(entity.avatar)
 			.email(entity.email)
 			.ingameUuid(entity.ingameUuid)
 			.displayName(entity.displayName)
