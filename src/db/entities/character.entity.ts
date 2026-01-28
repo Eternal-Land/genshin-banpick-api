@@ -28,7 +28,7 @@ export class CharacterEntity {
 	@Column({ name: ColumnNames.Character.weaponType })
 	weaponType: WeaponType;
 
-	@Column({ name: ColumnNames.Character.iconUrl })
+	@Column({ name: ColumnNames.Character.iconUrl, nullable: true })
 	iconUrl: string;
 
 	@Column({ name: ColumnNames.Character.rarity })
