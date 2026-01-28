@@ -6,6 +6,12 @@ import { initializeTransactionalContext } from "typeorm-transactional";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { ValidationPipe } from "@nestjs/common";
 import { ApiValidationError } from "@errors";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 async function bootstrap() {
 	initializeTransactionalContext();
