@@ -30,7 +30,8 @@ export class CreateCharacterRequest {
 
 	@ApiProperty()
 	@IsUrl()
-	iconUrl: string;
+	@IsOptional()
+	iconUrl?: string;
 
 	@ApiProperty()
 	@IsInt()
