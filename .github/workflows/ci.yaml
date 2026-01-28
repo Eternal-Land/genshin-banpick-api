@@ -35,6 +35,6 @@ jobs:
     steps:
       - name: Deploy to VPS
         run: |
-          cd genshin-banpick &&
+          cd ~/genshin-banpick &&
           docker compose pull api &&
           docker compose up -d api
