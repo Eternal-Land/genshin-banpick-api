@@ -12,4 +12,10 @@ export const PERMISSIONS_MAP = {
 	"admin.staff.create": "Create Staff",
 	"admin.staff.update": "Update Staff",
 	"admin.staff.delete": "Delete Staff",
+
+	"admin.character.list": "View Characters List",
+	"admin.character.detail": "View Character Detail",
+	"admin.character.create": "Create Character",
+	"admin.character.update": "Update Character",
+	"admin.character.delete": "Delete Character",
 } as const;
