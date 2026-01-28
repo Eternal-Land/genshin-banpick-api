@@ -31,6 +31,7 @@ jobs:
 
   deploy-vps:
     runs-on: genshin-banpick-sv
+    needs: build-and-push-docker
     steps:
       - name: Deploy to VPS
         run: |
