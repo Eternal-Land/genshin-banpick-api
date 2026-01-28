@@ -63,6 +63,6 @@ export class AccountEntity {
 	@JoinColumn({ name: ColumnNames.StaffRole.id })
 	staffRole: StaffRoleEntity;
 
-	@Column({ name: ColumnNames.Account.isActive, default: true })
+	@Column({ name: ColumnNames.Global.isActive, default: true })
 	isActive: boolean;
 }
