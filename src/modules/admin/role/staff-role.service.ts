@@ -52,7 +52,6 @@ export class StaffRoleService {
 
 		const role = this.roleRepo.create({
 			name: dto.name,
-			isActive: dto.isActive ?? true,
 			createdById: currentAccountId,
 			updatedById: currentAccountId,
 		});
@@ -92,9 +91,6 @@ export class StaffRoleService {
 
 		if (dto.name !== undefined) {
 			role.name = dto.name;
-		}
-		if (dto.isActive !== undefined) {
-			role.isActive = dto.isActive;
 		}
 		role.updatedById = currentAccountId;
 
@@ -156,6 +152,32 @@ export class StaffRoleService {
 			);
 			await this.rolePermissionRepo.save(rolePermissions);
 		}
+
+		const savedRoleWithPermissions = await this.roleRepo.findOne({
+			where: { id: savedRole.id },
+			relations: {
+				permissions: {
+					permission: true,
+				},
+				createdBy: true,
+				updatedBy: true,
+			},
+		});
+
+		return savedRoleWithPermissions ?? savedRole;
+	}
+
+	async toggleRoleActive(id: number) {
+		const role = await this.roleRepo.findOne({ where: { id } });
+		if (!role) {
+			throw new RoleNotFoundError();
+		}
+
+		const currentAccountId = this.cls.get("profile.id");
+		role.isActive = !role.isActive;
+		role.updatedById = currentAccountId;
+
+		const savedRole = await this.roleRepo.save(role);
 
 		const savedRoleWithPermissions = await this.roleRepo.findOne({
 			where: { id: savedRole.id },

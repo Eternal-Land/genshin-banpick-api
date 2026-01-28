@@ -15,7 +15,7 @@ import {
 	StaffRoleInactiveError,
 } from "./errors";
 import { AccountRole } from "@utils/enums";
-import { ProfileResponse } from "./dto";
+import { ProfileResponse } from "@modules/self/dto";
 
 @Injectable()
 export class AuthGuard implements CanActivate {

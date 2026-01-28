@@ -2,7 +2,7 @@ import { AccountEntity } from "@db/entities";
 import { ApiProperty } from "@nestjs/swagger";
 import { Builder } from "builder-pattern";
 import { AccountRole } from "@utils/enums";
-import { ProfileResponse } from "@modules/auth/dto";
+import { ProfileResponse } from "@modules/self/dto";
 
 export class StaffResponse {
 	@ApiProperty()
@@ -10,6 +10,9 @@ export class StaffResponse {
 
 	@ApiProperty()
 	email: string;
+
+	@ApiProperty({ required: false })
+	avatar?: string;
 
 	@ApiProperty({ required: false })
 	ingameUuid?: string;
@@ -41,6 +44,7 @@ export class StaffResponse {
 	static fromEntity(entity: AccountEntity) {
 		return Builder(StaffResponse)
 			.id(entity.id)
+			.avatar(entity.avatar)
 			.email(entity.email)
 			.ingameUuid(entity.ingameUuid)
 			.displayName(entity.displayName)

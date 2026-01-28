@@ -28,3 +28,12 @@ jobs:
         with:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.REPO_ID }}:latest , ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.REPO_ID }}:${{ steps.commit.outputs.short }}
+
+  deploy-vps:
+    runs-on: genshin-banpick-sv
+    steps:
+      - name: Deploy to VPS
+        run: |
+          cd genshin-banpick &&
+          docker compose pull api &&
+          docker compose up -d api

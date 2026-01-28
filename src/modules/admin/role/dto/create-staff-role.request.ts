@@ -22,9 +22,4 @@ export class CreateStaffRoleRequest {
 	@ArrayUnique()
 	@IsInt({ each: true })
 	permissionIds: number[];
-
-	@ApiProperty({ required: false })
-	@IsOptional()
-	@IsBoolean()
-	isActive?: boolean;
 }

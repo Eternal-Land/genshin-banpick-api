@@ -55,6 +55,7 @@ export class AuthService implements OnModuleInit {
 			email: dto.email,
 			displayName: dto.displayName,
 			password: hashedPassword,
+			avatar: dto.avatar,
 		});
 
 		await this.accountRepo.save(account);
@@ -94,9 +95,5 @@ export class AuthService implements OnModuleInit {
 		);
 
 		return Builder(TokenResponse).accessToken(accessToken).build();
-	}
-
-	async getCurrentAccount() {
-		return this.cls.get("profile");
 	}
 }

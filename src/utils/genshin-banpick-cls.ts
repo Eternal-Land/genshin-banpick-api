@@ -1,4 +1,4 @@
-import { ProfileResponse } from "@modules/auth/dto";
+import { ProfileResponse } from "@modules/self/dto";
 import { ClsStore } from "nestjs-cls";
 
 export interface GenshinBanpickCls extends ClsStore {

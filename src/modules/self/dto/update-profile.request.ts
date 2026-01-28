@@ -1,25 +1,17 @@
 import { ApiProperty } from "@nestjs/swagger";
 import {
-	IsBoolean,
 	IsEmail,
-	IsInt,
 	IsNotEmpty,
 	IsOptional,
 	IsString,
-	IsStrongPassword,
 	IsUrl,
 } from "class-validator";
 
-export class UpdateStaffRequest {
+export class UpdateProfileRequest {
 	@ApiProperty({ required: false })
 	@IsOptional()
 	@IsString()
 	ingameUuid?: string;
-
-	@ApiProperty({ required: false })
-	@IsOptional()
-	@IsEmail()
-	email?: string;
 
 	@ApiProperty({ required: false })
 	@IsOptional()
@@ -31,9 +23,4 @@ export class UpdateStaffRequest {
 	@IsString()
 	@IsNotEmpty()
 	displayName?: string;
-
-	@ApiProperty({ required: false })
-	@IsOptional()
-	@IsInt()
-	staffRoleId?: number;
 }

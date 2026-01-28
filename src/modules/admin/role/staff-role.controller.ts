@@ -64,4 +64,12 @@ export class StaffRoleController {
 		const role = await this.roleService.copyRole(id);
 		return BaseApiResponse.success(StaffRoleResponse.fromEntity(role));
 	}
+
+	@Put(":id/toggle-active")
+	@RequirePermission("admin.staff-role.update")
+	@SwaggerBaseApiResponse(StaffRoleResponse)
+	async toggleRoleStatus(@Param("id", ParseIntPipe) id: number) {
+		const role = await this.roleService.toggleRoleActive(id);
+		return BaseApiResponse.success(StaffRoleResponse.fromEntity(role));
+	}
 }
