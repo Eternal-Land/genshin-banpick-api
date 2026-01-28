@@ -8,6 +8,7 @@ COPY . .
 RUN bun run build
 
 FROM node:22 AS runner
+RUN npm i -g bun
 WORKDIR /app
 COPY package.json bun.lock ./
 RUN bun install
