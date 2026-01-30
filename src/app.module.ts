@@ -9,6 +9,7 @@ import { ClsModule } from "nestjs-cls";
 import { StaffModule } from "@modules/admin/staff";
 import { FilesModule } from "@modules/files";
 import { SelfModule } from "@modules/self";
+import { HoyolabModule } from "@modules/hoyolab";
 
 @Module({
 	imports: [
@@ -26,6 +27,7 @@ import { SelfModule } from "@modules/self";
 		StaffModule,
 		FilesModule,
 		SelfModule,
+		HoyolabModule,
 	],
 	controllers: [],
 	providers: [

@@ -19,6 +19,9 @@ export const Env = {
 	CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || "",
 	CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || "",
 	CLOUDINARY_FOLDER: process.env.CLOUDINARY_FOLDER || "",
+	HOYOLAB_BASE_URL:
+		process.env.HOYOLAB_BASE_URL || "https://sg-public-api.hoyolab.com/event",
+	HOYOLAB_LANGUAGE: process.env.HOYOLAB_LANGUAGE || "en-us",
 } as const;
 
 console.log(Env);
