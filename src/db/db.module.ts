@@ -4,6 +4,7 @@ import { datasource } from "./datasource";
 import { addTransactionalDataSource } from "typeorm-transactional";
 import {
 	AccountRepository,
+	CharacterRepository,
 	PermissionRepository,
 	StaffRolePermissionRepository,
 	StaffRoleRepository,
@@ -14,6 +15,7 @@ const repositories = [
 	StaffRolePermissionRepository,
 	StaffRoleRepository,
 	AccountRepository,
+	CharacterRepository,
 ];
 
 @Global()

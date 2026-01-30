@@ -1,0 +1,7 @@
+export enum WeaponType {
+	SWORD = 0,
+	CLAYMORE = 1,
+	POLEARM = 2,
+	BOW = 3,
+	CATALYST = 4,
+}

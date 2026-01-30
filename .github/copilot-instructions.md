@@ -1,78 +1,443 @@
-# Copilot Instructions (genshin-banpick-api)
+# Genshin Banpick API - Copilot Instructions
 
-## Project overview
+## Project Overview
 
-- NestJS API (TypeScript) with TypeORM + MySQL.
-- App entry: `main.ts` boots Nest, sets global prefix `/api`, enables CORS, Swagger (optional), helmet, and global validation + exception filter.
-- Transactional context enabled via `typeorm-transactional`.
+This is a NestJS-based API for the Genshin Banpick application. It uses TypeORM for database management with MySQL, JWT for authentication, and follows a modular architecture with role-based access control (RBAC).
 
-## Path aliases
+## Tech Stack
 
-Use TS path aliases from `tsconfig.json`:
+- **Framework**: NestJS (v11)
+- **Database**: MySQL with TypeORM (v0.3.28)
+- **Authentication**: JWT (jsonwebtoken)
+- **Runtime**: Node.js with TypeScript
+- **Package Manager**: Bun
+- **Validation**: class-validator + class-transformer
+- **API Documentation**: Swagger/OpenAPI
+- **File Storage**: Cloudinary
+- **Security**: Helmet, bcryptjs
+- **Context Management**: nestjs-cls (ClsModule)
 
-- `@utils`, `@errors`, `@db`, `@modules/*`, `@providers/*`
+## Project Structure
 
-## Response + error conventions
+### Path Aliases
 
-- Always return standardized responses via `BaseApiResponse.success(...)` or `BaseApiResponse.error(...)` from `@utils`.
-- When returning object DTOs from services, prefer `builder-pattern` (e.g., `Builder(TokenResponse)...build()`).
-- Throw/return custom errors by extending `ApiError` (`@errors/api-error.ts`).
-- Do not throw `ApiError` directly in services. Define module-specific errors under `src/modules/<feature>/errors` and throw those instead.
-- Validation errors must use `ApiValidationError` (built from `class-validator` errors) so the global filter can format them.
-- The global exception filter is `MyExceptionFilter` in `@utils`. It handles `ApiError` and `HttpException` and returns `BaseApiResponse`.
-- Error codes are in `@utils/enums/error-code.ts` (`OK`, `UNKNOWN_ERROR`, `VALIDATION_ERROR`). Add new codes there as needed.
-- For endpoints that only return a success message, use `SwaggerBaseApiMessageResponse()`.
+- `@db`: `src/db` - Database entities, repositories, and configurations
+- `@modules`: `src/modules` - Feature modules
+- `@utils`: `src/utils` - Utilities, decorators, DTOs, enums
+- `@errors`: `src/errors` - Error definitions
+- `@providers`: `src/providers` - Third-party service integrations
 
-## DTOs + validation
+### Module Organization
 
-- Define DTOs with `class-validator` and `@nestjs/swagger` decorators.
-- Validation is global in `main.ts` using `ValidationPipe` with a custom `exceptionFactory` that wraps errors in `ApiValidationError`.
-- Request/response DTO naming: `create-example.request.ts` (`CreateExampleRequest`) and `example.response.ts` (`ExampleResponse`).
-- Response DTOs typically implement `fromEntity(...)` and `fromEntities(...)` helpers.
-- Do not include audit fields like `createdById`/`updatedById` in request DTOs; populate them in services via `ClsService` using the current account.
+Each module follows this structure:
 
-## Module structure conventions
+```
+@modules/
+  feature-name/
+    feature-name.module.ts
+    feature-name.service.ts
+    feature-name.controller.ts
+    index.ts (exports module, service, controller)
+    dto/
+      *.request.ts (input DTOs)
+      *.response.ts (output DTOs)
+      index.ts
+    errors/
+      *.error.ts (module-specific errors)
+      index.ts
+```
 
-- Feature modules live under `src/modules/<feature>` with:
-  - `*.module.ts`, `*.service.ts`, `*.controller.ts`
-  - `dto/` for request/response DTOs
-  - Optional `errors/` for module-specific errors
-  - `index.ts` exports public module types
-- Providers live under `src/providers/<provider>` with nested `modules/*` for provider sub-features (e.g., OAuth).
-- DB layer under `src/db`:
-  - `datasource.ts` TypeORM DataSource
-  - `db.module.ts` registers TypeORM and transactional datasource
-  - `entities/` and `migrations/`
-  - `repositories/` for injectable repositories to use in services
-  - When adding a new repository, register it in `db.module.ts` (`providers` + `exports`)
+## Core Patterns & Conventions
 
-## Swagger
+### 1. Authentication & Authorization
 
-- Use `SwaggerBaseApiResponse(...)` from `@utils` for controller responses.
-- Use `SwaggerBaseApiMessageResponse()` for endpoints with no data payload.
-- `BaseApiResponse` defines swagger schema for `data` and `pagination`.
+**Global Authentication**:
 
-## Authorization + permissions
+- `AuthGuard` is registered globally via `APP_GUARD` in `app.module.ts`
+- All routes require authentication by default
+- Use `@SkipAuth()` decorator to bypass authentication
 
-- Auth is enforced globally via `AuthGuard` (registered in `AppModule`). Use `@SkipAuth()` to bypass.
-- Use `@RequirePermission(...)` from `@utils/decorators` on protected endpoints.
-- Allowed values are from `PermissionCode` (keys of `PERMISSIONS_MAP` in `@utils/constants`).
-- If you add a new permission, update `PERMISSIONS_MAP` accordingly.
-- For authenticated routes, include `@ApiBearerAuth()`.
+**Skip Authentication**:
 
-## Environment config
+```typescript
+@Get('public')
+@SkipAuth()
+async getPublicData() {
+  // No auth required
+}
+```
 
-- `Env` in `src/utils/env.ts` is the single source for env vars (DB, port, swagger flag, JWT config, admin bootstrap). Update it when adding new variables.
+**Permission-Based Authorization**:
 
-## Style conventions
+```typescript
+@Get()
+@RequirePermission('admin.staff.list')
+async listStaff() {
+  // Only accounts with this permission can access
+}
+```
 
-- TypeScript, double quotes, semicolons, tabs for indentation (match existing files).
-- Prefer explicit imports from aliases instead of relative deep paths.
+**Permission Codes**: Defined in `@utils/constants/permissions.ts` as `PERMISSIONS_MAP`
 
-## When adding new features
+**Account Roles**:
 
-1. Create module under `src/modules/<feature>` with controller/service/module and DTOs.
-2. Export module from the feature `index.ts` and add it to `AppModule` imports.
-3. Use `BaseApiResponse` for all controller responses.
-4. Add/extend errors via `ApiError` + `ErrorCode`.
-5. If DB schema changes, add entity under `src/db/entities` and run migrations.
+- `ADMIN`: Super admin with all permissions
+- `STAFF`: Staff with role-based permissions
+- `USER`: Regular user
+
+### 2. Error Handling
+
+**Custom Errors**: All errors must extend `ApiError` class:
+
+```typescript
+export class SampleError extends ApiError<DataType> {
+	constructor(data?: DataType) {
+		super({
+			code: ErrorCode.SAMPLE_ERROR,
+			message: "Sample Error!",
+			detail: data,
+			status: 400, // HTTP status code
+		});
+	}
+}
+```
+
+**Error Codes**: Define in `@utils/enums/error-code.ts`
+
+**Global Exception Filter**: `MyExceptionFilter` catches all errors and formats responses
+
+### 3. API Response Format
+
+**Success Response**:
+
+```typescript
+return BaseApiResponse.success(data, pagination);
+```
+
+**Error Response** (handled by exception filter):
+
+```typescript
+throw new SampleError(detail);
+```
+
+**Response Structure**:
+
+```typescript
+{
+  code: ErrorCode,
+  message: string,
+  data?: T,
+  error?: any,
+  pagination?: PaginationDto
+}
+```
+
+### 4. Swagger Documentation
+
+**Controller-Level**:
+
+```typescript
+@Controller("/admin/staffs")
+@ApiBearerAuth() // Require bearer token
+export class StaffController {}
+```
+
+**Endpoint-Level**:
+
+```typescript
+@Get()
+@SwaggerBaseApiResponse(StaffResponse, { isArray: true })
+async listStaff() {}
+```
+
+### 5. Database Entities
+
+**Entity Naming Convention**:
+
+- File: `{name}.entity.ts`
+- Class: `{Name}Entity`
+- Table name: Use `TableNames` from `@db/db.constants`
+- Column names: Use `ColumnNames` from `@db/db.constants`
+
+**Entity Example**:
+
+```typescript
+@Entity(TableNames.Sample)
+export class SampleEntity {
+	@PrimaryGeneratedColumn("uuid", { name: ColumnNames.Sample.id })
+	id: string;
+
+	@Column({ name: ColumnNames.Sample.name })
+	name: string;
+
+	@CreateDateColumn({ name: ColumnNames.Global.createdAt })
+	createdAt: Date;
+
+	@Column({ name: ColumnNames.Global.createdById, nullable: true })
+	createdById: string;
+
+	@ManyToOne(() => AccountEntity, {
+		createForeignKeyConstraints: false,
+		nullable: true,
+	})
+	@JoinColumn({ name: ColumnNames.Global.createdById })
+	createdBy: AccountEntity;
+}
+```
+
+**Export Entity**: Add to `@db/entities/index.ts`
+
+**Migration Commands**:
+
+```bash
+npm run migration:generate  # Generate migration
+npm run migration:run       # Apply migration
+```
+
+### 6. Repositories
+
+**Create Repository**:
+
+```typescript
+// sample.repository.ts
+@Injectable()
+export class SampleRepository extends Repository<SampleEntity> {
+	constructor(private dataSource: DataSource) {
+		super(SampleEntity, dataSource.createEntityManager());
+	}
+}
+```
+
+**Export & Register**:
+
+1. Export in `@db/repositories/index.ts`
+2. Add to `providers` in `@db/db.module.ts`
+
+### 7. DTOs
+
+**Request DTO** (validation):
+
+```typescript
+export class CreateSampleRequest {
+	@IsString()
+	@IsNotEmpty()
+	name: string;
+
+	@IsEmail()
+	email: string;
+
+	@IsOptional()
+	@IsString()
+	description?: string;
+}
+```
+
+**Response DTO** (transformation):
+
+```typescript
+export class SampleResponse {
+	id: string;
+	name: string;
+	createdAt: Date;
+
+	static fromEntity(entity: SampleEntity): SampleResponse {
+		return {
+			id: entity.id,
+			name: entity.name,
+			createdAt: entity.createdAt,
+		};
+	}
+
+	static fromEntities(entities: SampleEntity[]): SampleResponse[] {
+		return entities.map((e) => this.fromEntity(e));
+	}
+}
+```
+
+### 8. Services
+
+**Service Pattern**:
+
+```typescript
+@Injectable()
+export class SampleService {
+	constructor(
+		private readonly sampleRepo: SampleRepository,
+		private readonly cls: ClsService<GenshinBanpickCls>,
+	) {}
+
+	async create(dto: CreateSampleRequest) {
+		const profile = this.cls.get("profile"); // Current user
+
+		const sample = this.sampleRepo.create({
+			...dto,
+			createdById: profile.id,
+		});
+
+		return await this.sampleRepo.save(sample);
+	}
+}
+```
+
+### 9. Controllers
+
+**Controller Pattern**:
+
+```typescript
+@Controller("/samples")
+@ApiBearerAuth()
+export class SampleController {
+	constructor(private readonly sampleService: SampleService) {}
+
+	@Get()
+	@RequirePermission("sample.list")
+	@SwaggerBaseApiResponse(SampleResponse, { isArray: true })
+	async list() {
+		const samples = await this.sampleService.list();
+		return BaseApiResponse.success(SampleResponse.fromEntities(samples));
+	}
+
+	@Post()
+	@RequirePermission("sample.create")
+	@SwaggerBaseApiResponse(SampleResponse)
+	async create(@Body() dto: CreateSampleRequest) {
+		const sample = await this.sampleService.create(dto);
+		return BaseApiResponse.success(SampleResponse.fromEntity(sample));
+	}
+
+	@Put(":id")
+	@RequirePermission("sample.update")
+	@SwaggerBaseApiResponse(SampleResponse)
+	async update(
+		@Param("id", ParseUUIDPipe) id: string,
+		@Body() dto: UpdateSampleRequest,
+	) {
+		const sample = await this.sampleService.update(id, dto);
+		return BaseApiResponse.success(SampleResponse.fromEntity(sample));
+	}
+}
+```
+
+### 10. Environment Variables
+
+**Add New Variable**:
+
+1. Add to `.env` file
+2. Add to `Env` object in `@utils/env.ts`:
+
+```typescript
+export const Env = {
+	NEW_VAR: process.env.NEW_VAR || "",
+	// or for numbers:
+	NEW_NUMBER: Number(process.env.NEW_NUMBER || "0"),
+	// or for booleans:
+	NEW_BOOL: process.env.NEW_BOOL === "true",
+} as const;
+```
+
+### 11. Current User Context
+
+Access current authenticated user via CLS:
+
+```typescript
+constructor(private readonly cls: ClsService<GenshinBanpickCls>) {}
+
+async someMethod() {
+  const profile = this.cls.get('profile'); // ProfileResponse
+  // profile.id, profile.email, profile.role, etc.
+}
+```
+
+## Development Commands
+
+```bash
+bun install              # Install dependencies
+bun run start:dev        # Start in watch mode
+bun run build            # Build for production
+bun run start:prod       # Start production build
+bun run lint             # Lint code
+bun run lint:fix         # Fix linting issues
+bun run prettier         # Check formatting
+bun run prettier:fix     # Fix formatting
+bun run migration:generate  # Generate migration
+bun run migration:run    # Run migrations
+```
+
+## Creating New Features
+
+### Step-by-Step Guide
+
+1. **Define Entity** (if needed):
+   - Create `{name}.entity.ts` in `@db/entities`
+   - Use `TableNames` and `ColumnNames`
+   - Export in `@db/entities/index.ts`
+   - Run migration commands
+
+2. **Create Repository** (if needed):
+   - Create `{name}.repository.ts` in `@db/repositories`
+   - Extend `Repository<EntityType>`
+   - Export in `@db/repositories/index.ts`
+   - Register in `@db/db.module.ts`
+
+3. **Create Module**:
+   - Create folder in `@modules/{feature-name}`
+   - Create `{feature-name}.module.ts`
+   - Create `{feature-name}.service.ts`
+   - Create `{feature-name}.controller.ts`
+   - Create `index.ts` with exports
+
+4. **Define DTOs**:
+   - Create `dto/` folder
+   - Add `*.request.ts` for inputs (with validation)
+   - Add `*.response.ts` for outputs (with fromEntity methods)
+   - Export in `dto/index.ts`
+
+5. **Define Errors** (if needed):
+   - Create `errors/` folder
+   - Add `*.error.ts` extending `ApiError`
+   - Add error code to `@utils/enums/error-code.ts`
+   - Export in `errors/index.ts`
+
+6. **Add Permissions** (if needed):
+   - Add to `PERMISSIONS_MAP` in `@utils/constants/permissions.ts`
+   - Use `@RequirePermission()` decorator in controller
+
+7. **Register Module**:
+   - Import in `app.module.ts`
+
+## Best Practices
+
+1. **Always use path aliases** (`@db`, `@modules`, `@utils`, `@errors`, `@providers`)
+2. **Use DTOs for validation and transformation** (separate request/response)
+3. **Extend ApiError for custom errors** with proper error codes
+4. **Use BaseApiResponse.success()** for all successful responses
+5. **Apply @ApiBearerAuth()** on protected controllers
+6. **Use @SwaggerBaseApiResponse()** for proper API documentation
+7. **Use CLS context** to access current user instead of passing through parameters
+8. **Follow naming conventions**: entities end with `Entity`, DTOs with `Request`/`Response`
+9. **Use builder-pattern** for complex object construction
+10. **Export all public items** through `index.ts` files
+11. **Use ParseUUIDPipe** for UUID parameters
+12. **Keep services thin** - business logic in services, not controllers
+13. **Use proper HTTP status codes** in error definitions
+
+## Security Notes
+
+- All routes are protected by default (AuthGuard is global)
+- JWT tokens are validated on every request
+- Passwords are hashed with bcryptjs (10 rounds)
+- CORS is enabled for all origins (configure for production)
+- Helmet is configured for security headers
+- Admin account is auto-created on first run
+
+## API Documentation
+
+Access Swagger UI at `/api/docs` when `ENABLE_SWAGGER=true`
+
+## Notes
+
+- This project uses Bun as package manager
+- MySQL is the primary database
+- TypeORM is configured for automatic entity discovery
+- Global validation pipe transforms and validates all inputs
+- Global exception filter handles all errors consistently

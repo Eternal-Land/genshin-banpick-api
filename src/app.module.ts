@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { DbModule } from "@db";
 import { PermissionModule } from "@modules/admin/permission";
+import { CharacterModule } from "@modules/admin/character";
 import { StaffRoleModule } from "@modules/admin/role";
 import { APP_GUARD } from "@nestjs/core";
 import { AuthGuard, AuthModule } from "@modules/auth";
@@ -20,6 +21,7 @@ import { HoyolabModule } from "@modules/hoyolab";
 			},
 		}),
 		PermissionModule,
+		CharacterModule,
 		StaffRoleModule,
 		AuthModule,
 		StaffModule,

@@ -4,6 +4,7 @@ export const TableNames = {
 	StaffRole: "staff_role",
 	Permission: "permission",
 	StaffRolePermission: "staff_role_permission",
+	Character: "character",
 };
 
 export const ColumnNames = {
@@ -27,7 +28,6 @@ export const ColumnNames = {
 		password: "password",
 		lastLoginAt: "last_login_at",
 		role: "role",
-		isActive: "is_active",
 		avatar: "avatar",
 	},
 	StaffRole: {
@@ -42,6 +42,15 @@ export const ColumnNames = {
 	},
 	StaffRolePermission: {
 		id: "staff_role_permission_id",
+	},
+	Character: {
+		id: "character_id",
+		key: "character_key",
+		name: "character_name",
+		element: "character_element",
+		weaponType: "character_weapon_type",
+		rarity: "character_rarity",
+		iconUrl: "character_icon_url",
 	},
 };
 
