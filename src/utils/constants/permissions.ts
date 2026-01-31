@@ -18,4 +18,10 @@ export const PERMISSIONS_MAP = {
 	"admin.character.create": "Create Character",
 	"admin.character.update": "Update Character",
 	"admin.character.delete": "Delete Character",
+
+	"admin.weapon.list": "View Weapons List",
+	"admin.weapon.detail": "View Weapon Detail",
+	"admin.weapon.create": "Create Weapon",
+	"admin.weapon.update": "Update Weapon",
+	"admin.weapon.delete": "Delete Weapon",
 } as const;
