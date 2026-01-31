@@ -5,6 +5,7 @@ export const TableNames = {
 	Permission: "permission",
 	StaffRolePermission: "staff_role_permission",
 	Character: "character",
+	Weapon: "weapon",
 };
 
 export const ColumnNames = {
@@ -51,6 +52,14 @@ export const ColumnNames = {
 		weaponType: "character_weapon_type",
 		rarity: "character_rarity",
 		iconUrl: "character_icon_url",
+	},
+	Weapon: {
+		id: "weapon_id",
+		key: "weapon_key",
+		name: "weapon_name",
+		type: "weapon_type",
+		rarity: "weapon_rarity",
+		iconUrl: "weapon_icon_url",
 	},
 };
 
