@@ -1,6 +1,6 @@
 import { WeaponEntity } from "@db/entities";
 import { ApiProperty } from "@nestjs/swagger";
-import { WeaponType } from "@utils/enums";
+import { WeaponRarity, WeaponType } from "@utils/enums";
 import { Builder } from "builder-pattern";
 import { ProfileResponse } from "@modules/self/dto";
 
@@ -17,8 +17,8 @@ export class WeaponResponse {
 	@ApiProperty({ enum: WeaponType })
 	type: WeaponType;
 
-	@ApiProperty()
-	rarity: number;
+	@ApiProperty({ enum: WeaponRarity })
+	rarity: WeaponRarity;
 
 	@ApiProperty({ required: false })
 	iconUrl?: string;

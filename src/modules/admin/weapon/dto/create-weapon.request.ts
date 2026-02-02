@@ -1,14 +1,11 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { WeaponType } from "@utils/enums";
+import { WeaponRarity, WeaponType } from "@utils/enums";
 import {
 	IsEnum,
-	IsInt,
 	IsNotEmpty,
 	IsOptional,
 	IsString,
 	IsUrl,
-	Max,
-	Min,
 } from "class-validator";
 
 export class CreateWeaponRequest {
@@ -26,11 +23,9 @@ export class CreateWeaponRequest {
 	@IsEnum(WeaponType)
 	type: WeaponType;
 
-	@ApiProperty()
-	@IsInt()
-	@Min(1)
-	@Max(5)
-	rarity: number;
+	@ApiProperty({ type: Number, enum: WeaponRarity })
+	@IsEnum(WeaponRarity)
+	rarity: WeaponRarity;
 
 	@ApiProperty({ required: false })
 	@IsUrl()

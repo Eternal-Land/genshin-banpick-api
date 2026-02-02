@@ -1,5 +1,5 @@
 import { ColumnNames, TableNames } from "@db/db.constants";
-import { WeaponType } from "@utils/enums";
+import { WeaponRarity, WeaponType } from "@utils/enums";
 import {
 	Column,
 	CreateDateColumn,
@@ -26,7 +26,7 @@ export class WeaponEntity {
 	type: WeaponType;
 
 	@Column({ name: ColumnNames.Weapon.rarity })
-	rarity: number;
+	rarity: WeaponRarity;
 
 	@Column({ name: ColumnNames.Weapon.iconUrl, nullable: true })
 	iconUrl: string;
