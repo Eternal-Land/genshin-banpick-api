@@ -14,19 +14,18 @@ export class FilesService implements OnModuleInit {
 		});
 	}
 
-	generateUploadSignature(): GenerateUploadSignatureResponse {
+	generateUploadSignature(folder: string): GenerateUploadSignatureResponse {
 		const timestamp = Math.floor(Date.now() / 1000);
 		const signature = cloudinary.utils.api_sign_request(
 			{
 				timestamp: timestamp,
-				folder: Env.CLOUDINARY_FOLDER,
+				folder: folder,
 			},
 			Env.CLOUDINARY_API_SECRET,
 		);
 
 		return Builder(GenerateUploadSignatureResponse)
 			.signature(signature)
-			.folder(Env.CLOUDINARY_FOLDER)
 			.apiKey(Env.CLOUDINARY_API_KEY)
 			.timestamp(timestamp)
 			.cloudName(Env.CLOUDINARY_CLOUD_NAME)
