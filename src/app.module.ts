@@ -11,6 +11,7 @@ import { FilesModule } from "@modules/files";
 import { SelfModule } from "@modules/self";
 import { HoyolabModule } from "@modules/hoyolab";
 import { WeaponModule } from "@modules/admin/weapon";
+import { UserModule } from "@modules/admin/users";
 
 @Module({
 	imports: [
@@ -30,6 +31,7 @@ import { WeaponModule } from "@modules/admin/weapon";
 		SelfModule,
 		HoyolabModule,
 		WeaponModule,
+		UserModule,
 	],
 	controllers: [],
 	providers: [

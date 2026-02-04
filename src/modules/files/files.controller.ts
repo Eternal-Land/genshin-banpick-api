@@ -1,4 +1,4 @@
-import { Controller, Get } from "@nestjs/common";
+import { Controller, Get, Query } from "@nestjs/common";
 import { SkipAuth } from "@utils/decorators";
 import { FilesService } from "./files.service";
 import { BaseApiResponse, SwaggerBaseApiResponse } from "@utils";
@@ -11,8 +11,8 @@ export class FilesController {
 
 	@Get("upload-signature")
 	@SwaggerBaseApiResponse(GenerateUploadSignatureResponse)
-	async generateUploadSignature() {
-		const response = this.filesService.generateUploadSignature();
+	async generateUploadSignature(@Query("folder") folder: string) {
+		const response = this.filesService.generateUploadSignature(folder);
 		return BaseApiResponse.success(response);
 	}
 }
