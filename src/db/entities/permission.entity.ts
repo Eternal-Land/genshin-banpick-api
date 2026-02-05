@@ -1,5 +1,5 @@
-import { ColumnNames, TableNames } from "@db/db.constants";
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { ColumnNames, IndexNames, TableNames } from "@db/db.constants";
+import { Column, Entity, Index, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity(TableNames.Permission)
 export class PermissionEntity {
@@ -12,6 +12,7 @@ export class PermissionEntity {
 	@Column({ name: ColumnNames.Permission.code, unique: true })
 	code: string;
 
+	@Index(IndexNames.Permission.deprecated)
 	@Column({ name: ColumnNames.Permission.deprecated, default: false })
 	deprecated: boolean;
 }

@@ -1,9 +1,10 @@
-import { ColumnNames, TableNames } from "@db/db.constants";
+import { ColumnNames, IndexNames, TableNames } from "@db/db.constants";
 import { CharacterElement, WeaponType } from "@utils/enums";
 import {
 	Column,
 	CreateDateColumn,
 	Entity,
+	Index,
 	JoinColumn,
 	ManyToOne,
 	PrimaryGeneratedColumn,
@@ -22,18 +23,22 @@ export class CharacterEntity {
 	@Column({ name: ColumnNames.Character.name })
 	name: string;
 
+	@Index(IndexNames.Character.element)
 	@Column({ name: ColumnNames.Character.element })
 	element: CharacterElement;
 
+	@Index(IndexNames.Character.weaponType)
 	@Column({ name: ColumnNames.Character.weaponType })
 	weaponType: WeaponType;
 
 	@Column({ name: ColumnNames.Character.iconUrl, nullable: true })
 	iconUrl: string;
 
+	@Index(IndexNames.Character.rarity)
 	@Column({ name: ColumnNames.Character.rarity })
 	rarity: number;
 
+	@Index(IndexNames.Character.isActive)
 	@Column({ name: ColumnNames.Global.isActive, default: true })
 	isActive: boolean;
 

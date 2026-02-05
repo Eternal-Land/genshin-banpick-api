@@ -26,4 +26,10 @@ export const PERMISSIONS_MAP = {
 	"admin.weapon.delete": "Delete Weapon",
 
 	"admin.users.list": "View Users List",
+
+	"admin.cost-milestone.list": "View Cost Milestones List",
+	"admin.cost-milestone.detail": "View Cost Milestone Detail",
+	"admin.cost-milestone.create": "Create Cost Milestone",
+	"admin.cost-milestone.update": "Update Cost Milestone",
+	"admin.cost-milestone.delete": "Delete Cost Milestone",
 } as const;

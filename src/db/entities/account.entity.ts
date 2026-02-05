@@ -1,8 +1,9 @@
-import { ColumnNames, TableNames } from "@db/db.constants";
+import { ColumnNames, IndexNames, TableNames } from "@db/db.constants";
 import {
 	Column,
 	CreateDateColumn,
 	Entity,
+	Index,
 	JoinColumn,
 	ManyToOne,
 	PrimaryGeneratedColumn,
@@ -11,10 +12,12 @@ import { AccountRole } from "@utils/enums";
 import { StaffRoleEntity } from "./staff-role.entity";
 
 @Entity(TableNames.Account)
+@Index(IndexNames.Account.roleIsActive, ["role", "isActive"])
 export class AccountEntity {
 	@PrimaryGeneratedColumn("uuid", { name: ColumnNames.Account.id })
 	id: string;
 
+	@Index(IndexNames.Account.ingameUuid)
 	@Column({ name: ColumnNames.Account.ingameUuid, nullable: true })
 	ingameUuid: string;
 
@@ -46,6 +49,7 @@ export class AccountEntity {
 	@Column({ name: ColumnNames.Account.lastLoginAt, nullable: true })
 	lastLoginAt: Date;
 
+	@Index(IndexNames.Account.role)
 	@Column({
 		name: ColumnNames.Account.role,
 		type: "int",
@@ -63,6 +67,7 @@ export class AccountEntity {
 	@JoinColumn({ name: ColumnNames.StaffRole.id })
 	staffRole: StaffRoleEntity;
 
+	@Index(IndexNames.Account.isActive)
 	@Column({ name: ColumnNames.Global.isActive, default: true })
 	isActive: boolean;
 }
