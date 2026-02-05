@@ -6,12 +6,14 @@ import {
 	ParseIntPipe,
 	Post,
 	Put,
+	Query,
 } from "@nestjs/common";
 import { ApiBearerAuth } from "@nestjs/swagger";
 import { BaseApiResponse, SwaggerBaseApiResponse } from "@utils";
 import { RequirePermission } from "@utils/decorators";
 import { CharacterService } from "./character.service";
 import {
+	CharacterQuery,
 	CharacterResponse,
 	CreateCharacterRequest,
 	UpdateCharacterRequest,
@@ -25,8 +27,8 @@ export class CharacterController {
 	@Get()
 	@RequirePermission("admin.character.list")
 	@SwaggerBaseApiResponse(CharacterResponse, { isArray: true })
-	async listCharacters() {
-		const characters = await this.characterService.listCharacters();
+	async listCharacters(@Query() query: CharacterQuery) {
+		const characters = await this.characterService.listCharacters(query);
 		return BaseApiResponse.success(CharacterResponse.fromEntities(characters));
 	}
 
