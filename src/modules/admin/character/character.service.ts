@@ -2,7 +2,11 @@ import { CharacterRepository } from "@db/repositories";
 import { Injectable } from "@nestjs/common";
 import { ClsService } from "nestjs-cls";
 import { GenshinBanpickCls } from "@utils";
-import { CreateCharacterRequest, UpdateCharacterRequest } from "./dto";
+import {
+	CharacterQuery,
+	CreateCharacterRequest,
+	UpdateCharacterRequest,
+} from "./dto";
 import {
 	CharacterKeyAlreadyExistsError,
 	CharacterNotFoundError,
@@ -15,14 +19,51 @@ export class CharacterService {
 		private readonly cls: ClsService<GenshinBanpickCls>,
 	) {}
 
-	async listCharacters() {
-		return this.characterRepo.find({
-			relations: {
-				createdBy: true,
-				updatedBy: true,
-			},
-			order: { createdAt: "DESC" },
-		});
+	async listCharacters(query: CharacterQuery) {
+		const { search, element, weaponType, rarity, isActive } = query;
+
+		const queryBuilder = this.characterRepo
+			.createQueryBuilder("character")
+			.leftJoinAndSelect("character.createdBy", "createdBy")
+			.leftJoinAndSelect("character.updatedBy", "updatedBy");
+
+		if (search) {
+			queryBuilder.andWhere(
+				"(character.name LIKE :search OR character.key LIKE :search)",
+				{ search: `%${search}%` },
+			);
+		}
+
+		if (element?.length) {
+			queryBuilder.andWhere("character.element IN (:...element)", { element });
+		}
+
+		if (weaponType?.length) {
+			queryBuilder.andWhere("character.weaponType IN (:...weaponType)", {
+				weaponType,
+			});
+		}
+
+		if (rarity?.length) {
+			queryBuilder.andWhere("character.rarity IN (:...rarity)", { rarity });
+		}
+
+		if (isActive?.length) {
+			queryBuilder.andWhere("character.isActive IN (:...isActive)", {
+				isActive,
+			});
+		}
+
+		const [characters, total] = await Promise.all([
+			queryBuilder
+				.orderBy("character.createdAt", "DESC")
+				.skip((query.page - 1) * query.take)
+				.take(query.take)
+				.getMany(),
+			queryBuilder.getCount(),
+		]);
+
+		return { characters, total };
 	}
 
 	async getCharacter(id: number) {
