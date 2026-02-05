@@ -20,7 +20,6 @@ export class CharacterService {
 	) {}
 
 	async listCharacters(query: CharacterQuery) {
-		console.log("Query:", query);
 		const { search, element, weaponType, rarity, isActive } = query;
 
 		const queryBuilder = this.characterRepo
@@ -55,9 +54,16 @@ export class CharacterService {
 			});
 		}
 
-		queryBuilder.orderBy("character.createdAt", "DESC");
+		const [characters, total] = await Promise.all([
+			queryBuilder
+				.orderBy("character.createdAt", "DESC")
+				.skip((query.page - 1) * query.take)
+				.take(query.take)
+				.getMany(),
+			queryBuilder.getCount(),
+		]);
 
-		return queryBuilder.getMany();
+		return { characters, total };
 	}
 
 	async getCharacter(id: number) {

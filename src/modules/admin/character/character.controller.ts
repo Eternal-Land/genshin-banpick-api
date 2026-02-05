@@ -9,7 +9,7 @@ import {
 	Query,
 } from "@nestjs/common";
 import { ApiBearerAuth } from "@nestjs/swagger";
-import { BaseApiResponse, SwaggerBaseApiResponse } from "@utils";
+import { BaseApiResponse, PaginationDto, SwaggerBaseApiResponse } from "@utils";
 import { RequirePermission } from "@utils/decorators";
 import { CharacterService } from "./character.service";
 import {
@@ -28,8 +28,12 @@ export class CharacterController {
 	@RequirePermission("admin.character.list")
 	@SwaggerBaseApiResponse(CharacterResponse, { isArray: true })
 	async listCharacters(@Query() query: CharacterQuery) {
-		const characters = await this.characterService.listCharacters(query);
-		return BaseApiResponse.success(CharacterResponse.fromEntities(characters));
+		const { characters, total } =
+			await this.characterService.listCharacters(query);
+		return BaseApiResponse.success(
+			CharacterResponse.fromEntities(characters),
+			PaginationDto.from(query.page, query.take, total),
+		);
 	}
 
 	@Get(":id")

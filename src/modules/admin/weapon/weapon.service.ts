@@ -39,9 +39,16 @@ export class WeaponService {
 			queryBuilder.andWhere("weapon.isActive IN (:...isActive)", { isActive });
 		}
 
-		queryBuilder.orderBy("weapon.createdAt", "DESC");
+		const [weapons, total] = await Promise.all([
+			queryBuilder
+				.orderBy("weapon.createdAt", "DESC")
+				.skip((query.page - 1) * query.take)
+				.take(query.take)
+				.getMany(),
+			queryBuilder.getCount(),
+		]);
 
-		return queryBuilder.getMany();
+		return { weapons, total };
 	}
 
 	async getWeapon(id: number) {

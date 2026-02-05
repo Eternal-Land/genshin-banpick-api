@@ -9,7 +9,7 @@ import {
 	Query,
 } from "@nestjs/common";
 import { ApiBearerAuth } from "@nestjs/swagger";
-import { BaseApiResponse, SwaggerBaseApiResponse } from "@utils";
+import { BaseApiResponse, PaginationDto, SwaggerBaseApiResponse } from "@utils";
 import { RequirePermission } from "@utils/decorators";
 import { WeaponService } from "./weapon.service";
 import {
@@ -28,8 +28,11 @@ export class WeaponController {
 	@RequirePermission("admin.weapon.list")
 	@SwaggerBaseApiResponse(WeaponResponse, { isArray: true })
 	async listWeapons(@Query() query: WeaponQuery) {
-		const weapons = await this.weaponService.listWeapons(query);
-		return BaseApiResponse.success(WeaponResponse.fromEntities(weapons));
+		const { weapons, total } = await this.weaponService.listWeapons(query);
+		return BaseApiResponse.success(
+			WeaponResponse.fromEntities(weapons),
+			PaginationDto.from(query.page, query.take, total),
+		);
 	}
 
 	@Get(":id")
