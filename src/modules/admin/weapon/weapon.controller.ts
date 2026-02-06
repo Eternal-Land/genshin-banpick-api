@@ -29,7 +29,7 @@ export class WeaponController {
 	@SwaggerBaseApiResponse(WeaponResponse, { isArray: true })
 	async listWeapons(@Query() query: WeaponQuery) {
 		const { weapons, total } = await this.weaponService.listWeapons(query);
-		return BaseApiResponse.success(
+		return BaseApiResponse.successWithPagination(
 			WeaponResponse.fromEntities(weapons),
 			PaginationDto.from(query.page, query.take, total),
 		);

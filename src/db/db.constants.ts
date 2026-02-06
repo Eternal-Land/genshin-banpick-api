@@ -6,6 +6,8 @@ export const TableNames = {
 	StaffRolePermission: "staff_role_permission",
 	Character: "character",
 	Weapon: "weapon",
+	CharacterCost: "character_cost",
+	CostMilestone: "cost_milestone",
 };
 
 export const ColumnNames = {
@@ -61,10 +63,49 @@ export const ColumnNames = {
 		rarity: "weapon_rarity",
 		iconUrl: "weapon_icon_url",
 	},
+	CharacterCost: {
+		id: "character_cost_id",
+		cost: "character_cost",
+		constellation: "character_constellation",
+	},
+	CostMilestone: {
+		id: "cost_milestone_id",
+		costFrom: "cost_from",
+		costTo: "cost_to",
+		costValuePerSec: "cost_value_per_sec",
+	},
 };
 
 export const IndexNames = {
 	Sample: {
 		age: "idx_sample_sample_age",
+	},
+	Account: {
+		role: "idx_account_role",
+		isActive: "idx_account_is_active",
+		roleIsActive: "idx_account_role_is_active",
+		ingameUuid: "idx_account_ingame_uuid",
+	},
+	Character: {
+		element: "idx_character_element",
+		weaponType: "idx_character_weapon_type",
+		rarity: "idx_character_rarity",
+		isActive: "idx_character_is_active",
+	},
+	Weapon: {
+		type: "idx_weapon_type",
+		rarity: "idx_weapon_rarity",
+		isActive: "idx_weapon_is_active",
+	},
+	StaffRole: {
+		isActive: "idx_staff_role_is_active",
+	},
+	StaffRolePermission: {
+		staffRoleId: "idx_staff_role_permission_staff_role_id",
+		permissionId: "idx_staff_role_permission_permission_id",
+		staffRolePermission: "idx_staff_role_permission_composite",
+	},
+	Permission: {
+		deprecated: "idx_permission_deprecated",
 	},
 };

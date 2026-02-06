@@ -1,10 +1,9 @@
-import { ColumnNames, IndexNames, TableNames } from "@db/db.constants";
-import { WeaponRarity, WeaponType } from "@utils/enums";
+import { ColumnNames, TableNames } from "@db/db.constants";
 import {
+	AfterLoad,
 	Column,
 	CreateDateColumn,
 	Entity,
-	Index,
 	JoinColumn,
 	ManyToOne,
 	PrimaryGeneratedColumn,
@@ -12,29 +11,36 @@ import {
 } from "typeorm";
 import { AccountEntity } from "./account.entity";
 
-@Entity(TableNames.Weapon)
-export class WeaponEntity {
-	@PrimaryGeneratedColumn("increment", { name: ColumnNames.Weapon.id })
+@Entity(TableNames.CostMilestone)
+export class CostMilestoneEntity {
+	@PrimaryGeneratedColumn("increment", { name: ColumnNames.CostMilestone.id })
 	id: number;
 
-	@Column({ name: ColumnNames.Weapon.key, unique: true })
-	key: string;
+	@Column({
+		name: ColumnNames.CostMilestone.costFrom,
+		type: "decimal",
+		precision: 7,
+		scale: 2,
+	})
+	costFrom: number;
 
-	@Column({ name: ColumnNames.Weapon.name })
-	name: string;
+	@Column({
+		name: ColumnNames.CostMilestone.costTo,
+		type: "decimal",
+		precision: 7,
+		scale: 2,
+		nullable: true,
+	})
+	costTo: number;
 
-	@Index(IndexNames.Weapon.type)
-	@Column({ name: ColumnNames.Weapon.type })
-	type: WeaponType;
+	@Column({
+		name: ColumnNames.CostMilestone.costValuePerSec,
+		type: "decimal",
+		precision: 7,
+		scale: 2,
+	})
+	costValuePerSec: number;
 
-	@Index(IndexNames.Weapon.rarity)
-	@Column({ name: ColumnNames.Weapon.rarity })
-	rarity: WeaponRarity;
-
-	@Column({ name: ColumnNames.Weapon.iconUrl, nullable: true })
-	iconUrl: string;
-
-	@Index(IndexNames.Weapon.isActive)
 	@Column({ name: ColumnNames.Global.isActive, default: true })
 	isActive: boolean;
 
@@ -48,7 +54,7 @@ export class WeaponEntity {
 	@JoinColumn({ name: ColumnNames.Global.createdById })
 	createdBy: AccountEntity;
 
-	@UpdateDateColumn({ name: ColumnNames.Global.updatedAt, nullable: true })
+	@UpdateDateColumn({ name: ColumnNames.Global.updatedAt })
 	updatedAt: Date;
 
 	@Column({ name: ColumnNames.Global.updatedById, nullable: true })
@@ -60,4 +66,11 @@ export class WeaponEntity {
 	})
 	@JoinColumn({ name: ColumnNames.Global.updatedById })
 	updatedBy: AccountEntity;
+
+	@AfterLoad()
+	afterLoad() {
+		this.costFrom = Number(this.costFrom);
+		this.costTo = this.costTo !== null ? Number(this.costTo) : null;
+		this.costValuePerSec = Number(this.costValuePerSec);
+	}
 }
