@@ -44,7 +44,7 @@ export class WeaponEntity {
 	@Column({ name: ColumnNames.Global.createdById })
 	createdById: string;
 
-	@ManyToOne(() => AccountEntity, { createForeignKeyConstraints: true })
+	@ManyToOne(() => AccountEntity, { createForeignKeyConstraints: false })
 	@JoinColumn({ name: ColumnNames.Global.createdById })
 	createdBy: AccountEntity;
 
@@ -55,7 +55,7 @@ export class WeaponEntity {
 	updatedById: string;
 
 	@ManyToOne(() => AccountEntity, {
-		createForeignKeyConstraints: true,
+		createForeignKeyConstraints: false,
 		nullable: true,
 	})
 	@JoinColumn({ name: ColumnNames.Global.updatedById })

@@ -31,7 +31,7 @@ export class CostMilestoneController {
 	async listCostMilestones(@Query() query: CostMilestoneQuery) {
 		const { costMilestones, total } =
 			await this.costMilestoneService.listCostMilestones(query);
-		return BaseApiResponse.success(
+		return BaseApiResponse.successWithPagination(
 			CostMilestoneResponse.fromEntities(costMilestones),
 			PaginationDto.from(query.page, query.take, total),
 		);

@@ -7,10 +7,12 @@ import {
 	Index,
 	JoinColumn,
 	ManyToOne,
+	OneToMany,
 	PrimaryGeneratedColumn,
 	UpdateDateColumn,
 } from "typeorm";
 import { AccountEntity } from "./account.entity";
+import { CharacterCostEntity } from "./character-cost.entity";
 
 @Entity(TableNames.Character)
 export class CharacterEntity {
@@ -48,7 +50,7 @@ export class CharacterEntity {
 	@Column({ name: ColumnNames.Global.createdById })
 	createdById: string;
 
-	@ManyToOne(() => AccountEntity, { createForeignKeyConstraints: true })
+	@ManyToOne(() => AccountEntity, { createForeignKeyConstraints: false })
 	@JoinColumn({ name: ColumnNames.Global.createdById })
 	createdBy: AccountEntity;
 
@@ -59,9 +61,15 @@ export class CharacterEntity {
 	updatedById: string;
 
 	@ManyToOne(() => AccountEntity, {
-		createForeignKeyConstraints: true,
+		createForeignKeyConstraints: false,
 		nullable: true,
 	})
 	@JoinColumn({ name: ColumnNames.Global.updatedById })
 	updatedBy: AccountEntity;
+
+	@OneToMany(
+		() => CharacterCostEntity,
+		(characterCost) => characterCost.character,
+	)
+	characterCosts: CharacterCostEntity[];
 }

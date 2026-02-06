@@ -15,7 +15,7 @@ export class UserController {
 	@SwaggerBaseApiResponse(UserResponse, { isArray: true })
 	async listUsers(@Query() query: UserQuery) {
 		const { users, total } = await this.userService.listUsers(query);
-		return BaseApiResponse.success(
+		return BaseApiResponse.successWithPagination(
 			UserResponse.fromEntities(users),
 			PaginationDto.from(query.page, query.take, total),
 		);

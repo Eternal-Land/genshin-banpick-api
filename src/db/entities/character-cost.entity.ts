@@ -5,7 +5,6 @@ import {
 	Column,
 	ManyToOne,
 	JoinColumn,
-	UpdateDateColumn,
 	AfterLoad,
 } from "typeorm";
 import { CharacterEntity } from "./character.entity";
@@ -19,7 +18,9 @@ export class CharacterCostEntity {
 	@Column({ name: ColumnNames.Character.id })
 	characterId: number;
 
-	@ManyToOne(() => CharacterEntity, { createForeignKeyConstraints: false })
+	@ManyToOne(() => CharacterEntity, (character) => character.characterCosts, {
+		createForeignKeyConstraints: false,
+	})
 	@JoinColumn({ name: ColumnNames.Character.id })
 	character: CharacterEntity;
 
@@ -33,15 +34,6 @@ export class CharacterCostEntity {
 		scale: 2,
 	})
 	cost: number;
-
-	@Column({ name: ColumnNames.Global.isActive, default: true })
-	isActive: boolean;
-
-	@UpdateDateColumn()
-	updatedAt: Date;
-
-	@Column({ name: ColumnNames.Global.updatedById, nullable: true })
-	updatedById: string;
 
 	@ManyToOne(() => AccountEntity, {
 		createForeignKeyConstraints: false,
