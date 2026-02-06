@@ -20,7 +20,7 @@ export class CharacterService {
 	) {}
 
 	async listCharacters(query: CharacterQuery) {
-		const { search, element, weaponType, rarity, isActive } = query;
+		const { search, element, weaponType, rarity, showInactive } = query;
 
 		const queryBuilder = this.characterRepo
 			.createQueryBuilder("character")
@@ -48,9 +48,9 @@ export class CharacterService {
 			queryBuilder.andWhere("character.rarity IN (:...rarity)", { rarity });
 		}
 
-		if (isActive?.length) {
-			queryBuilder.andWhere("character.isActive IN (:...isActive)", {
-				isActive,
+		if (!showInactive) {
+			queryBuilder.andWhere("character.isActive = :isActive", {
+				isActive: true,
 			});
 		}
 

@@ -1,7 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 import {
 	PaginationQuery,
-	TransformToBooleanArray,
+	TransformToBoolean,
 	TransformToNumberArray,
 } from "@utils";
 import { CharacterElement, WeaponType } from "@utils/enums";
@@ -45,11 +45,11 @@ export class CharacterQuery extends PaginationQuery {
 
 	@ApiProperty({
 		required: false,
-		type: [Boolean],
+		type: Boolean,
 		description: "Filter by active status",
 	})
-	@IsBoolean({ each: true })
+	@IsBoolean()
 	@IsOptional()
-	@TransformToBooleanArray()
-	isActive?: boolean[];
+	@TransformToBoolean()
+	showInactive?: boolean;
 }

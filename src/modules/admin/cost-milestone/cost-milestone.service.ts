@@ -17,16 +17,14 @@ export class CostMilestoneService {
 	) {}
 
 	async listCostMilestones(query: CostMilestoneQuery) {
-		const { isActive } = query;
-
 		const queryBuilder = this.costMilestoneRepo
 			.createQueryBuilder("costMilestone")
 			.leftJoinAndSelect("costMilestone.createdBy", "createdBy")
 			.leftJoinAndSelect("costMilestone.updatedBy", "updatedBy");
 
-		if (isActive?.length) {
-			queryBuilder.andWhere("costMilestone.isActive IN (:...isActive)", {
-				isActive,
+		if (!query.showInactive) {
+			queryBuilder.andWhere("costMilestone.isActive = :isActive", {
+				isActive: true,
 			});
 		}
 

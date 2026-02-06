@@ -1,15 +1,15 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { PaginationQuery, TransformToBooleanArray } from "@utils";
+import { PaginationQuery, TransformToBoolean } from "@utils";
 import { IsBoolean, IsOptional } from "class-validator";
 
 export class CostMilestoneQuery extends PaginationQuery {
 	@ApiProperty({
 		required: false,
-		type: [Boolean],
+		type: Boolean,
 		description: "Filter by active status",
 	})
-	@IsBoolean({ each: true })
+	@IsBoolean()
 	@IsOptional()
-	@TransformToBooleanArray()
-	isActive?: boolean[];
+	@TransformToBoolean()
+	showInactive?: boolean;
 }

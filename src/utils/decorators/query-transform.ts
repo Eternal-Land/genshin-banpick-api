@@ -58,3 +58,9 @@ export const TransformToBooleanArray = (options?: BooleanArrayOptions) => {
 		),
 	);
 };
+
+export const TransformToBoolean = (
+	mode: BooleanTransformMode = "string-or-boolean",
+) => {
+	return Transform(({ value }) => toBoolean(value, mode));
+};
