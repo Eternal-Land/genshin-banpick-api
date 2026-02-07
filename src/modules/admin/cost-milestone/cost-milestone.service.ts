@@ -2,11 +2,7 @@ import { CostMilestoneRepository } from "@db/repositories";
 import { Injectable } from "@nestjs/common";
 import { GenshinBanpickCls } from "@utils";
 import { ClsService } from "nestjs-cls";
-import {
-	CostMilestoneQuery,
-	CreateCostMilestoneRequest,
-	UpdateCostMilestoneRequest,
-} from "./dto";
+import { CreateCostMilestoneRequest, UpdateCostMilestoneRequest } from "./dto";
 import { CostMilestoneNotFoundError } from "./errors";
 
 @Injectable()
@@ -16,28 +12,16 @@ export class CostMilestoneService {
 		private readonly costMilestoneRepo: CostMilestoneRepository,
 	) {}
 
-	async listCostMilestones(query: CostMilestoneQuery) {
-		const queryBuilder = this.costMilestoneRepo
-			.createQueryBuilder("costMilestone")
-			.leftJoinAndSelect("costMilestone.createdBy", "createdBy")
-			.leftJoinAndSelect("costMilestone.updatedBy", "updatedBy");
-
-		if (!query.showInactive) {
-			queryBuilder.andWhere("costMilestone.isActive = :isActive", {
-				isActive: true,
-			});
-		}
-
-		const [costMilestones, total] = await Promise.all([
-			queryBuilder
-				.orderBy("costMilestone.costFrom", "ASC")
-				.skip((query.page - 1) * query.take)
-				.take(query.take)
-				.getMany(),
-			queryBuilder.getCount(),
-		]);
-
-		return { costMilestones, total };
+	async listCostMilestones() {
+		return await this.costMilestoneRepo.find({
+			relations: {
+				createdBy: true,
+				updatedBy: true,
+			},
+			order: {
+				costFrom: "ASC",
+			},
+		});
 	}
 
 	async getCostMilestone(id: number) {
@@ -85,13 +69,8 @@ export class CostMilestoneService {
 		return await this.costMilestoneRepo.save(costMilestone);
 	}
 
-	async toggleActive(id: number) {
+	async deleteCostMilestone(id: number) {
 		const costMilestone = await this.getCostMilestone(id);
-		const currentAccountId = this.cls.get("profile.id");
-
-		costMilestone.isActive = !costMilestone.isActive;
-		costMilestone.updatedById = currentAccountId;
-
-		return await this.costMilestoneRepo.save(costMilestone);
+		return await this.costMilestoneRepo.remove(costMilestone);
 	}
 }

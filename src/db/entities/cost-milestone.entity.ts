@@ -41,9 +41,6 @@ export class CostMilestoneEntity {
 	})
 	costValuePerSec: number;
 
-	@Column({ name: ColumnNames.Global.isActive, default: true })
-	isActive: boolean;
-
 	@CreateDateColumn({ name: ColumnNames.Global.createdAt })
 	createdAt: Date;
 

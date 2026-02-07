@@ -17,9 +17,6 @@ export class CostMilestoneResponse {
 	costValuePerSec: number;
 
 	@ApiProperty()
-	isActive: boolean;
-
-	@ApiProperty()
 	createdAt: Date;
 
 	@ApiProperty({ required: false })
@@ -37,7 +34,6 @@ export class CostMilestoneResponse {
 			.costFrom(entity.costFrom)
 			.costTo(entity.costTo)
 			.costValuePerSec(entity.costValuePerSec)
-			.isActive(entity.isActive)
 			.createdAt(entity.createdAt)
 			.createdBy(
 				entity.createdBy

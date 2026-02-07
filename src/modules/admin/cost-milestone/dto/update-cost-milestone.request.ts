@@ -6,7 +6,6 @@ export class UpdateCostMilestoneRequest {
 		required: false,
 		description: "Starting cost value for this milestone",
 	})
-	@IsInt()
 	@IsOptional()
 	@Min(0)
 	costFrom?: number;
@@ -15,7 +14,6 @@ export class UpdateCostMilestoneRequest {
 		required: false,
 		description: "Ending cost value for this milestone (null for unlimited)",
 	})
-	@IsInt()
 	@IsOptional()
 	@Min(0)
 	costTo?: number;
@@ -24,7 +22,6 @@ export class UpdateCostMilestoneRequest {
 		required: false,
 		description: "Cost value per second for this milestone",
 	})
-	@IsInt()
 	@IsOptional()
 	@Min(0)
 	costValuePerSec?: number;
