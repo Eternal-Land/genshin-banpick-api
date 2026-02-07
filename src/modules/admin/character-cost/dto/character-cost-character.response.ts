@@ -23,6 +23,10 @@ export class CharacterCostCharacterResponse {
 	characterCosts?: CharacterCostResponse[];
 
 	static fromEntity(entity: CharacterEntity) {
+		const sortedCharacterCost = entity.characterCosts?.sort(
+			(a, b) => a.constellation - b.constellation,
+		);
+
 		return Builder(CharacterCostCharacterResponse)
 			.id(entity.id)
 			.key(entity.key)
@@ -30,8 +34,8 @@ export class CharacterCostCharacterResponse {
 			.iconUrl(entity.iconUrl)
 			.rarity(entity.rarity)
 			.characterCosts(
-				entity.characterCosts
-					? CharacterCostResponse.fromEntities(entity.characterCosts)
+				sortedCharacterCost
+					? CharacterCostResponse.fromEntities(sortedCharacterCost)
 					: undefined,
 			)
 			.build();

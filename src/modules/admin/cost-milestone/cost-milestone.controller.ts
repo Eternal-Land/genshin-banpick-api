@@ -10,11 +10,10 @@ import {
 	Query,
 } from "@nestjs/common";
 import { ApiBearerAuth } from "@nestjs/swagger";
-import { BaseApiResponse, PaginationDto, SwaggerBaseApiResponse } from "@utils";
+import { BaseApiResponse, SwaggerBaseApiResponse } from "@utils";
 import { RequirePermission } from "@utils/decorators";
 import { CostMilestoneService } from "./cost-milestone.service";
 import {
-	CostMilestoneQuery,
 	CostMilestoneResponse,
 	CreateCostMilestoneRequest,
 	UpdateCostMilestoneRequest,
@@ -28,12 +27,10 @@ export class CostMilestoneController {
 	@Get()
 	@RequirePermission("admin.cost-milestone.list")
 	@SwaggerBaseApiResponse(CostMilestoneResponse, { isArray: true })
-	async listCostMilestones(@Query() query: CostMilestoneQuery) {
-		const { costMilestones, total } =
-			await this.costMilestoneService.listCostMilestones(query);
-		return BaseApiResponse.successWithPagination(
+	async listCostMilestones() {
+		const costMilestones = await this.costMilestoneService.listCostMilestones();
+		return BaseApiResponse.success(
 			CostMilestoneResponse.fromEntities(costMilestones),
-			PaginationDto.from(query.page, query.take, total),
 		);
 	}
 
@@ -74,11 +71,12 @@ export class CostMilestoneController {
 		);
 	}
 
-	@Put(":id/toggle-active")
-	@RequirePermission("admin.cost-milestone.update")
+	@Delete(":id")
+	@RequirePermission("admin.cost-milestone.delete")
 	@SwaggerBaseApiResponse(CostMilestoneResponse)
-	async toggleActive(@Param("id", ParseIntPipe) id: number) {
-		const costMilestone = await this.costMilestoneService.toggleActive(id);
+	async deleteCostMilestone(@Param("id", ParseIntPipe) id: number) {
+		const costMilestone =
+			await this.costMilestoneService.deleteCostMilestone(id);
 		return BaseApiResponse.success(
 			CostMilestoneResponse.fromEntity(costMilestone),
 		);

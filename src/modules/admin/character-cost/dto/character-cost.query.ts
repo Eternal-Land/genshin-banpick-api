@@ -1,4 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
+import { TransformToBoolean } from "@utils";
 import { Type } from "class-transformer";
 import { IsBoolean, IsNumber, IsOptional } from "class-validator";
 
@@ -6,7 +7,7 @@ export class CharacterCostQuery {
 	@ApiProperty({ type: Boolean, required: false })
 	@IsBoolean()
 	@IsOptional()
-	@Type(() => Boolean)
+	@TransformToBoolean()
 	showInactive?: boolean;
 
 	@ApiProperty({ type: Number, required: false })

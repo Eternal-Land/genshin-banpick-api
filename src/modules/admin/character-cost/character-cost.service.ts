@@ -46,6 +46,11 @@ export class CharacterCostService {
 	}
 
 	private async handleCharacterCostSync(character: CharacterEntity) {
+		if (!character.isActive) {
+			await this.characterCostRepo.delete({ characterId: character.id });
+			return;
+		}
+
 		const existingCosts = await this.characterCostRepo.find({
 			where: { characterId: character.id },
 		});
