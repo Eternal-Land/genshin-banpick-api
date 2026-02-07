@@ -30,7 +30,7 @@ export class CharacterController {
 	async listCharacters(@Query() query: CharacterQuery) {
 		const { characters, total } =
 			await this.characterService.listCharacters(query);
-		return BaseApiResponse.success(
+		return BaseApiResponse.successWithPagination(
 			CharacterResponse.fromEntities(characters),
 			PaginationDto.from(query.page, query.take, total),
 		);

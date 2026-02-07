@@ -1,15 +1,18 @@
-import { ColumnNames, TableNames } from "@db/db.constants";
+import { ColumnNames, IndexNames, TableNames } from "@db/db.constants";
 import { CharacterElement, WeaponType } from "@utils/enums";
 import {
 	Column,
 	CreateDateColumn,
 	Entity,
+	Index,
 	JoinColumn,
 	ManyToOne,
+	OneToMany,
 	PrimaryGeneratedColumn,
 	UpdateDateColumn,
 } from "typeorm";
 import { AccountEntity } from "./account.entity";
+import { CharacterCostEntity } from "./character-cost.entity";
 
 @Entity(TableNames.Character)
 export class CharacterEntity {
@@ -22,18 +25,22 @@ export class CharacterEntity {
 	@Column({ name: ColumnNames.Character.name })
 	name: string;
 
+	@Index(IndexNames.Character.element)
 	@Column({ name: ColumnNames.Character.element })
 	element: CharacterElement;
 
+	@Index(IndexNames.Character.weaponType)
 	@Column({ name: ColumnNames.Character.weaponType })
 	weaponType: WeaponType;
 
 	@Column({ name: ColumnNames.Character.iconUrl, nullable: true })
 	iconUrl: string;
 
+	@Index(IndexNames.Character.rarity)
 	@Column({ name: ColumnNames.Character.rarity })
 	rarity: number;
 
+	@Index(IndexNames.Character.isActive)
 	@Column({ name: ColumnNames.Global.isActive, default: true })
 	isActive: boolean;
 
@@ -43,7 +50,7 @@ export class CharacterEntity {
 	@Column({ name: ColumnNames.Global.createdById })
 	createdById: string;
 
-	@ManyToOne(() => AccountEntity, { createForeignKeyConstraints: true })
+	@ManyToOne(() => AccountEntity, { createForeignKeyConstraints: false })
 	@JoinColumn({ name: ColumnNames.Global.createdById })
 	createdBy: AccountEntity;
 
@@ -54,9 +61,15 @@ export class CharacterEntity {
 	updatedById: string;
 
 	@ManyToOne(() => AccountEntity, {
-		createForeignKeyConstraints: true,
+		createForeignKeyConstraints: false,
 		nullable: true,
 	})
 	@JoinColumn({ name: ColumnNames.Global.updatedById })
 	updatedBy: AccountEntity;
+
+	@OneToMany(
+		() => CharacterCostEntity,
+		(characterCost) => characterCost.character,
+	)
+	characterCosts: CharacterCostEntity[];
 }

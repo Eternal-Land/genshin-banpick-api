@@ -1,9 +1,10 @@
-import { ColumnNames, TableNames } from "@db/db.constants";
+import { ColumnNames, IndexNames, TableNames } from "@db/db.constants";
 import { WeaponRarity, WeaponType } from "@utils/enums";
 import {
 	Column,
 	CreateDateColumn,
 	Entity,
+	Index,
 	JoinColumn,
 	ManyToOne,
 	PrimaryGeneratedColumn,
@@ -22,15 +23,18 @@ export class WeaponEntity {
 	@Column({ name: ColumnNames.Weapon.name })
 	name: string;
 
+	@Index(IndexNames.Weapon.type)
 	@Column({ name: ColumnNames.Weapon.type })
 	type: WeaponType;
 
+	@Index(IndexNames.Weapon.rarity)
 	@Column({ name: ColumnNames.Weapon.rarity })
 	rarity: WeaponRarity;
 
 	@Column({ name: ColumnNames.Weapon.iconUrl, nullable: true })
 	iconUrl: string;
 
+	@Index(IndexNames.Weapon.isActive)
 	@Column({ name: ColumnNames.Global.isActive, default: true })
 	isActive: boolean;
 
@@ -40,7 +44,7 @@ export class WeaponEntity {
 	@Column({ name: ColumnNames.Global.createdById })
 	createdById: string;
 
-	@ManyToOne(() => AccountEntity, { createForeignKeyConstraints: true })
+	@ManyToOne(() => AccountEntity, { createForeignKeyConstraints: false })
 	@JoinColumn({ name: ColumnNames.Global.createdById })
 	createdBy: AccountEntity;
 
@@ -51,7 +55,7 @@ export class WeaponEntity {
 	updatedById: string;
 
 	@ManyToOne(() => AccountEntity, {
-		createForeignKeyConstraints: true,
+		createForeignKeyConstraints: false,
 		nullable: true,
 	})
 	@JoinColumn({ name: ColumnNames.Global.updatedById })

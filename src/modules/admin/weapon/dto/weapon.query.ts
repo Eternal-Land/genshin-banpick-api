@@ -1,7 +1,10 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { PaginationQuery } from "@utils";
+import {
+	PaginationQuery,
+	TransformToBoolean,
+	TransformToNumberArray,
+} from "@utils";
 import { WeaponRarity, WeaponType } from "@utils/enums";
-import { Transform } from "class-transformer";
 import { IsBoolean, IsEnum, IsOptional } from "class-validator";
 
 export class WeaponQuery extends PaginationQuery {
@@ -16,13 +19,7 @@ export class WeaponQuery extends PaginationQuery {
 	})
 	@IsEnum(WeaponType, { each: true })
 	@IsOptional()
-	@Transform(({ value }) =>
-		value != undefined
-			? Array.isArray(value)
-				? value.map((v) => Number(v))
-				: [Number(value)]
-			: [],
-	)
+	@TransformToNumberArray()
 	type?: WeaponType[];
 
 	@ApiProperty({
@@ -33,28 +30,16 @@ export class WeaponQuery extends PaginationQuery {
 	})
 	@IsEnum(WeaponRarity, { each: true })
 	@IsOptional()
-	@Transform(({ value }) =>
-		value != undefined
-			? Array.isArray(value)
-				? value.map((v) => Number(v))
-				: [Number(value)]
-			: [],
-	)
+	@TransformToNumberArray()
 	rarity?: WeaponRarity[];
 
 	@ApiProperty({
 		required: false,
-		type: [Boolean],
+		type: Boolean,
 		description: "Filter by active status",
 	})
-	@IsBoolean({ each: true })
+	@IsBoolean()
 	@IsOptional()
-	@Transform(({ value }) =>
-		value != undefined
-			? Array.isArray(value)
-				? value.map((v) => String(v) == "true")
-				: [String(value) == "true"]
-			: [],
-	)
-	isActive?: boolean[];
+	@TransformToBoolean()
+	showInactive?: boolean;
 }

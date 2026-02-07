@@ -1,8 +1,9 @@
-import { ColumnNames, TableNames } from "@db/db.constants";
+import { ColumnNames, IndexNames, TableNames } from "@db/db.constants";
 import {
 	Column,
 	CreateDateColumn,
 	Entity,
+	Index,
 	JoinColumn,
 	ManyToOne,
 	OneToMany,
@@ -20,6 +21,7 @@ export class StaffRoleEntity {
 	@Column({ name: ColumnNames.StaffRole.name })
 	name: string;
 
+	@Index(IndexNames.StaffRole.isActive)
 	@Column({ name: ColumnNames.Global.isActive, default: true })
 	isActive: boolean;
 

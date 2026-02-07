@@ -13,7 +13,7 @@ export class WeaponService {
 	) {}
 
 	async listWeapons(query: WeaponQuery) {
-		const { search, type, rarity, isActive } = query;
+		const { search, type, rarity, showInactive } = query;
 
 		const queryBuilder = this.weaponRepo
 			.createQueryBuilder("weapon")
@@ -35,8 +35,8 @@ export class WeaponService {
 			queryBuilder.andWhere("weapon.rarity IN (:...rarity)", { rarity });
 		}
 
-		if (isActive?.length) {
-			queryBuilder.andWhere("weapon.isActive IN (:...isActive)", { isActive });
+		if (!showInactive) {
+			queryBuilder.andWhere("weapon.isActive = :isActive", { isActive: true });
 		}
 
 		const [weapons, total] = await Promise.all([
