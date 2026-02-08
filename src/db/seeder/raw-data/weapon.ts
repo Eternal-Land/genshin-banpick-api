@@ -84,6 +84,22 @@ export const rawWeaps: DeepPartial<WeaponEntity>[] = [
 		type: WeaponType.CATALYST,
 	},
 	{
+		key: "nocturnes_curtain_call",
+		name: "Nocturne's Curtain Call",
+		iconUrl:
+			"https://res.cloudinary.com/dphtvhtvf/image/upload/v1770345129/Nocturnes_Curtain_Call_xtheta.png",
+		rarity: WeaponRarity.WEAPON_SS,
+		type: WeaponType.CATALYST,
+	},
+	{
+		key: "lightbearing_moonshard",
+		name: "Lightbearing Moonshard",
+		iconUrl:
+			"https://res.cloudinary.com/dphtvhtvf/image/upload/v1770345128/lightbearing_moonshard_c4uyvz.png",
+		rarity: WeaponRarity.WEAPON_SS,
+		type: WeaponType.SWORD,
+	},
+	{
 		key: "absolution",
 		name: "Absolution",
 		iconUrl:

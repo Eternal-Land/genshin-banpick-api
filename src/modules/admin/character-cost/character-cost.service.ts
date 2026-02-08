@@ -2,7 +2,6 @@ import { CharacterCostEntity, CharacterEntity } from "@db/entities";
 import { CharacterCostRepository, CharacterRepository } from "@db/repositories";
 import { Injectable } from "@nestjs/common";
 import { CharacterCostQuery, UpdateCharacterCostRequest } from "./dto";
-import { MoreThanOrEqual } from "typeorm";
 import { CharacterCostNotFoundError } from "./errors";
 
 @Injectable()
@@ -13,23 +12,47 @@ export class CharacterCostService {
 	) {}
 
 	async getAllCharacterCosts(query: CharacterCostQuery) {
-		const characters = await this.characterRepo.find({
-			where: {
-				id: query.startId ? MoreThanOrEqual(query.startId) : undefined,
-				...(query.showInactive ? {} : { isActive: true }),
-			},
-			relations: {
-				characterCosts: true,
-			},
-			order: {
-				id: "ASC",
-			},
-			// Limit to 11 to check if there are more records for pagination
-			take: 11,
-			select: ["id", "key", "name", "iconUrl", "rarity", "characterCosts"],
-		});
+		const charQueryBuilder = this.characterRepo.createQueryBuilder("character");
+
+		if (query.startId) {
+			charQueryBuilder.andWhere("character.id >= :startId", {
+				startId: query.startId,
+			});
+		}
+		if (!query.showInactive) {
+			charQueryBuilder.andWhere("character.isActive = :isActive", {
+				isActive: true,
+			});
+		}
+
+		if (query.element && query.element.length > 0) {
+			charQueryBuilder.andWhere("character.element IN (:...elements)", {
+				elements: query.element,
+			});
+		}
+
+		if (query.search) {
+			charQueryBuilder.andWhere(
+				"(character.name LIKE :search OR character.key LIKE :search)",
+				{ search: `%${query.search}%` },
+			);
+		}
+
+		const characters = await charQueryBuilder
+			.select([
+				"character.id",
+				"character.key",
+				"character.name",
+				"character.iconUrl",
+				"character.rarity",
+			])
+			.innerJoinAndSelect("character.characterCosts", "characterCosts")
+			.take(query.limit + 1) // Limit to 11 to check if there are more records for pagination
+			.orderBy("character.id", "ASC")
+			.getMany();
+
 		let next: number | undefined = undefined;
-		if (characters.length > 10) {
+		if (characters.length > query.limit) {
 			const lastCharacter = characters.pop();
 			next = lastCharacter.id;
 		}
