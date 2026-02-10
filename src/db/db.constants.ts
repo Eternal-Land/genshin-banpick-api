@@ -1,6 +1,7 @@
 export const TableNames = {
 	Sample: "sample",
 	Account: "account",
+	AccountCharacter: "account_character",
 	StaffRole: "staff_role",
 	Permission: "permission",
 	StaffRolePermission: "staff_role_permission",
@@ -32,6 +33,15 @@ export const ColumnNames = {
 		lastLoginAt: "last_login_at",
 		role: "role",
 		avatar: "avatar",
+	},
+	AccountCharacter: {
+		id: "account_character_id",
+		accountId: "account_id",
+		characterId: "character_id",
+		activatedConstellation: "activated_constellation",
+		characterLevel: "character_level",
+		isOwned: "is_owned",
+		notes: "notes",
 	},
 	StaffRole: {
 		id: "staff_role_id",
@@ -85,6 +95,10 @@ export const IndexNames = {
 		isActive: "idx_account_is_active",
 		roleIsActive: "idx_account_role_is_active",
 		ingameUuid: "idx_account_ingame_uuid",
+	},
+	AccountCharacter: {
+		accountIdCharacterId: "idx_account_character_account_id_character_id",
+		characterId: "idx_account_character_character_id",
 	},
 	Character: {
 		element: "idx_character_element",
