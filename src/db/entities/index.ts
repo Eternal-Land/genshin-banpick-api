@@ -1,4 +1,5 @@
 export * from "./account.entity";
+export * from "./account-character.entity";
 export * from "./staff-role.entity";
 export * from "./permission.entity";
 export * from "./staff-role-permission.entity";
