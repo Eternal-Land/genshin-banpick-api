@@ -16,6 +16,8 @@ import { CostMilestoneModule } from "@modules/admin/cost-milestone";
 import { CharacterCostModule } from "@modules/admin/character-cost";
 import { AccountCharacterModule } from "@modules/account-character";
 import { UserCharacterModule } from "@modules/user/character";
+import { WeaponCostMilestoneModule } from "@modules/admin/weapon-cost-milestone";
+import { WeaponCostModule } from "@modules/admin/weapon-cost";
 
 @Module({
 	imports: [
@@ -40,6 +42,8 @@ import { UserCharacterModule } from "@modules/user/character";
 		CharacterCostModule,
 		AccountCharacterModule,
 		UserCharacterModule,
+		WeaponCostMilestoneModule,
+		WeaponCostModule,
 	],
 	controllers: [],
 	providers: [

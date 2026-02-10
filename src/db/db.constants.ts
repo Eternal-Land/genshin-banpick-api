@@ -9,6 +9,8 @@ export const TableNames = {
 	Weapon: "weapon",
 	CharacterCost: "character_cost",
 	CostMilestone: "cost_milestone",
+	WeaponCost: "weapon_cost",
+	WeaponCostMilestone: "weapon_cost_milestone",
 };
 
 export const ColumnNames = {
@@ -83,6 +85,19 @@ export const ColumnNames = {
 		costFrom: "cost_from",
 		costTo: "cost_to",
 		costValuePerSec: "cost_value_per_sec",
+	},
+	WeaponCost: {
+		id: "weapon_cost_id",
+		cost: "weapon_cost",
+		addTime: "add_time",
+		upgradeLevel: "upgrade_level",
+	},
+	WeaponCostMilestone: {
+		id: "weapon_cost_milestone_id",
+		weapon_rarity: "weapon_rarity",
+		cost: "cost",
+		addTime: "add_time",
+		upgradeLevel: "upgrade_level",
 	},
 };
 

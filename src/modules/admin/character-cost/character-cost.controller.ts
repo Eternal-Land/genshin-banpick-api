@@ -11,6 +11,7 @@ import { ApiBearerAuth } from "@nestjs/swagger";
 import { CharacterCostService } from "./character-cost.service";
 import {
 	BaseApiResponse,
+	RequirePermission,
 	SwaggerBaseApiMessageResponse,
 	SwaggerBaseApiResponse,
 } from "@utils";
@@ -26,6 +27,7 @@ export class CharacterCostController {
 	constructor(private readonly characterCostService: CharacterCostService) {}
 
 	@Get("/sync")
+	@RequirePermission("admin.character-cost.sync")
 	@SwaggerBaseApiMessageResponse()
 	async syncWithCharacters() {
 		await this.characterCostService.syncWithCharacters();
@@ -33,6 +35,7 @@ export class CharacterCostController {
 	}
 
 	@Get()
+	@RequirePermission("admin.character-cost.list")
 	@SwaggerBaseApiResponse(CharacterCostCharacterResponse, { isArray: true })
 	async getAllCharacterCosts(@Query() query: CharacterCostQuery) {
 		const { characters, next } =
@@ -44,6 +47,7 @@ export class CharacterCostController {
 	}
 
 	@Put("/:characterCostId")
+	@RequirePermission("admin.character-cost.update")
 	@SwaggerBaseApiMessageResponse()
 	async updateCharacterCost(
 		@Param("characterCostId", ParseIntPipe) characterCostId: number,

@@ -7,3 +7,5 @@ export * from "./character.entity";
 export * from "./weapon.entity";
 export * from "./character-cost.entity";
 export * from "./cost-milestone.entity";
+export * from "./weapon-cost.entity";
+export * from "./weapon-cost-milestone.entity";

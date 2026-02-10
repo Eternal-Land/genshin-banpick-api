@@ -4,6 +4,7 @@ import { GenshinBanpickCls } from "@utils";
 import { ClsService } from "nestjs-cls";
 import { CreateCostMilestoneRequest, UpdateCostMilestoneRequest } from "./dto";
 import { CostMilestoneNotFoundError } from "./errors";
+import { Transactional } from "typeorm-transactional";
 
 @Injectable()
 export class CostMilestoneService {
@@ -38,6 +39,7 @@ export class CostMilestoneService {
 		return costMilestone;
 	}
 
+	@Transactional()
 	async createCostMilestone(dto: CreateCostMilestoneRequest) {
 		const currentAccountId = this.cls.get("profile.id");
 
@@ -51,6 +53,7 @@ export class CostMilestoneService {
 		return await this.costMilestoneRepo.save(costMilestone);
 	}
 
+	@Transactional()
 	async updateCostMilestone(id: number, dto: UpdateCostMilestoneRequest) {
 		const costMilestone = await this.getCostMilestone(id);
 		const currentAccountId = this.cls.get("profile.id");
@@ -69,6 +72,7 @@ export class CostMilestoneService {
 		return await this.costMilestoneRepo.save(costMilestone);
 	}
 
+	@Transactional()
 	async deleteCostMilestone(id: number) {
 		const costMilestone = await this.getCostMilestone(id);
 		return await this.costMilestoneRepo.remove(costMilestone);

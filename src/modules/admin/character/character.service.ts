@@ -11,6 +11,7 @@ import {
 	CharacterKeyAlreadyExistsError,
 	CharacterNotFoundError,
 } from "./errors";
+import { Transactional } from "typeorm-transactional";
 
 @Injectable()
 export class CharacterService {
@@ -80,6 +81,7 @@ export class CharacterService {
 		return character;
 	}
 
+	@Transactional()
 	async createCharacter(dto: CreateCharacterRequest) {
 		const existing = await this.characterRepo.findOne({
 			where: { key: dto.key },
@@ -111,6 +113,7 @@ export class CharacterService {
 		});
 	}
 
+	@Transactional()
 	async updateCharacter(id: number, dto: UpdateCharacterRequest) {
 		const character = await this.characterRepo.findOne({
 			where: { id },
@@ -162,6 +165,7 @@ export class CharacterService {
 		});
 	}
 
+	@Transactional()
 	async toggleActive(id: number) {
 		const character = await this.characterRepo.findOne({
 			where: { id },

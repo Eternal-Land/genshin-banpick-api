@@ -7,10 +7,12 @@ import {
 	Index,
 	JoinColumn,
 	ManyToOne,
+	OneToMany,
 	PrimaryGeneratedColumn,
 	UpdateDateColumn,
 } from "typeorm";
 import { AccountEntity } from "./account.entity";
+import { WeaponCostEntity } from "./weapon-cost.entity";
 
 @Entity(TableNames.Weapon)
 export class WeaponEntity {
@@ -60,4 +62,7 @@ export class WeaponEntity {
 	})
 	@JoinColumn({ name: ColumnNames.Global.updatedById })
 	updatedBy: AccountEntity;
+
+	@OneToMany(() => WeaponCostEntity, (weaponCost) => weaponCost.weapon)
+	weaponCosts: WeaponCostEntity[];
 }
