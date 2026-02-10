@@ -17,8 +17,9 @@ export class PermissionService implements OnModuleInit {
 				// Update existing permission if description has changed
 				if (storedPermission.description !== description) {
 					storedPermission.description = description;
-					updatePromises.push(this.permissionRepo.save(storedPermission));
 				}
+				storedPermission.deprecated = false;
+				updatePromises.push(this.permissionRepo.save(storedPermission));
 			} else {
 				// Insert new permission
 				const newPermission = this.permissionRepo.create({
