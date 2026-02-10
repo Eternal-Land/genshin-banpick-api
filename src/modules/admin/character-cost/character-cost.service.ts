@@ -3,6 +3,7 @@ import { CharacterCostRepository, CharacterRepository } from "@db/repositories";
 import { Injectable } from "@nestjs/common";
 import { CharacterCostQuery, UpdateCharacterCostRequest } from "./dto";
 import { CharacterCostNotFoundError } from "./errors";
+import { Transactional } from "typeorm-transactional";
 
 @Injectable()
 export class CharacterCostService {
@@ -47,7 +48,7 @@ export class CharacterCostService {
 				"character.rarity",
 			])
 			.innerJoinAndSelect("character.characterCosts", "characterCosts")
-			.take(query.limit + 1) // Limit to 11 to check if there are more records for pagination
+			.take(query.limit + 1)
 			.orderBy("character.id", "ASC")
 			.getMany();
 
@@ -59,6 +60,7 @@ export class CharacterCostService {
 		return { characters, next };
 	}
 
+	@Transactional()
 	async syncWithCharacters() {
 		const characters = await this.characterRepo.find();
 		const promises: Promise<void>[] = [];
@@ -96,6 +98,7 @@ export class CharacterCostService {
 		await this.characterCostRepo.save(newCosts);
 	}
 
+	@Transactional()
 	async updateCharacterCost(
 		characterCostId: number,
 		dto: UpdateCharacterCostRequest,

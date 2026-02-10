@@ -7,6 +7,7 @@ import { CreateStaffRoleRequest, UpdateStaffRoleRequest } from "./dto";
 import { RoleNotFoundError } from "./errors";
 import { ClsService } from "nestjs-cls";
 import { GenshinBanpickCls } from "@utils";
+import { Transactional } from "typeorm-transactional";
 
 @Injectable()
 export class StaffRoleService {
@@ -46,6 +47,7 @@ export class StaffRoleService {
 		return role;
 	}
 
+	@Transactional()
 	async createRole(dto: CreateStaffRoleRequest) {
 		const permissionIds = dto.permissionIds ?? [];
 		const currentAccountId = this.cls.get("profile.id");
@@ -82,6 +84,7 @@ export class StaffRoleService {
 		return savedRoleWithPermissions ?? savedRole;
 	}
 
+	@Transactional()
 	async updateRole(id: number, dto: UpdateStaffRoleRequest) {
 		const role = await this.roleRepo.findOne({ where: { id } });
 		if (!role) {
@@ -123,6 +126,7 @@ export class StaffRoleService {
 		return savedRoleWithPermissions ?? savedRole;
 	}
 
+	@Transactional()
 	async copyRole(id: number) {
 		const role = await this.roleRepo.findOne({
 			where: { id },
@@ -167,6 +171,7 @@ export class StaffRoleService {
 		return savedRoleWithPermissions ?? savedRole;
 	}
 
+	@Transactional()
 	async toggleRoleActive(id: number) {
 		const role = await this.roleRepo.findOne({ where: { id } });
 		if (!role) {
