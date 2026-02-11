@@ -1,113 +1,71 @@
-import { WeaponCostEntity, WeaponEntity } from "@db/entities";
-import {
-	WeaponCostMilestoneRepository,
-	WeaponCostRepository,
-	WeaponRepository,
-} from "@db/repositories";
-import { Injectable } from "@nestjs/common";
-import { UpdateWeaponCostRequest, WeaponCostQuery } from "./dto";
+import { WeaponCostRepository } from "@db/repositories";
+import { Injectable, OnModuleInit } from "@nestjs/common";
+import { WeaponCostUnit, WeaponRarity } from "@utils/enums";
 import { Transactional } from "typeorm-transactional";
+import { UpdateWeaponCostRequest } from "./dto";
 import { WeaponCostNotFoundError } from "./errors";
 
 @Injectable()
-export class WeaponCostService {
-	constructor(
-		private readonly weaponRepo: WeaponRepository,
-		private readonly weaponCostRepo: WeaponCostRepository,
-		private readonly weaponCostMilestoneRepo: WeaponCostMilestoneRepository,
-	) {}
+export class WeaponCostService implements OnModuleInit {
+	constructor(private readonly weaponCostRepo: WeaponCostRepository) {}
+
+	private async handleInitMilestoneItem(
+		upgradeLevel: number,
+		rarity: WeaponRarity,
+	) {
+		const existing = await this.weaponCostRepo.findOne({
+			where: { upgradeLevel, weaponRarity: rarity },
+		});
+		if (!existing) {
+			const milestone = this.weaponCostRepo.create({
+				upgradeLevel,
+				weaponRarity: rarity,
+				value: 0,
+				unit: WeaponCostUnit.COST,
+			});
+			await this.weaponCostRepo.save(milestone);
+		}
+	}
 
 	@Transactional()
-	async syncWithWeapons() {
-		const milestones = await this.weaponCostMilestoneRepo.find();
-		const milestoneLevelMap = new Map<number, (typeof milestones)[0]>();
-		for (const milestone of milestones) {
-			milestoneLevelMap.set(milestone.upgradeLevel, milestone);
-		}
-		const weapons = await this.weaponRepo.find();
+	async initMilestones() {
 		const promises: Promise<void>[] = [];
-		for (const weapon of weapons) {
-			promises.push(this.handleWeaponCostSync(weapon, milestoneLevelMap));
+		for (let i = 1; i <= 6; i++) {
+			for (const key in WeaponRarity) {
+				if (!isNaN(Number(key))) continue;
+				promises.push(
+					this.handleInitMilestoneItem(
+						i,
+						WeaponRarity[key as keyof typeof WeaponRarity],
+					),
+				);
+			}
 		}
 		await Promise.all(promises);
 	}
 
-	private async handleWeaponCostSync(
-		weapon: WeaponEntity,
-		milestoneLevelMap: Map<number, { cost: number; addTime: number }>,
-	) {
-		if (!weapon.isActive) {
-			await this.weaponCostRepo.delete({ weaponId: weapon.id });
-			return;
-		}
-
-		const existingCosts = await this.weaponCostRepo.find({
-			where: { weaponId: weapon.id },
-		});
-		const existingLevels = new Set<number>();
-		for (const cost of existingCosts) {
-			existingLevels.add(cost.upgradeLevel);
-		}
-
-		const newCosts: WeaponCostEntity[] = [];
-		for (let level = 1; level <= 6; level++) {
-			if (existingLevels.has(level)) {
-				continue;
-			}
-			const milestone = milestoneLevelMap.get(level);
-			if (!milestone) {
-				continue;
-			}
-			newCosts.push(
-				this.weaponCostRepo.create({
-					weaponId: weapon.id,
-					upgradeLevel: level,
-					cost: milestone.cost,
-					addTime: milestone.addTime,
-				}),
-			);
-		}
-
-		await this.weaponCostRepo.save(newCosts);
-	}
-
-	async listWeaponCosts(query: WeaponCostQuery) {
-		const weaponQueryBuilder = this.weaponRepo.createQueryBuilder("weapon");
-
-		if (query.startId) {
-			weaponQueryBuilder.andWhere("weapon.id >= :startId", {
-				startId: query.startId,
-			});
-		}
-
-		const weapons = await weaponQueryBuilder
-			.innerJoinAndSelect("weapon.weaponCosts", "weaponCosts")
-			.take(query.limit + 1)
-			.orderBy("weapon.id", "ASC")
-			.getMany();
-
-		let next: number | undefined = undefined;
-		if (weapons.length > query.limit) {
-			const lastWeapon = weapons.pop();
-			next = lastWeapon.id;
-		}
-
-		return { weapons, next };
+	async onModuleInit() {
+		await this.initMilestones();
 	}
 
 	@Transactional()
-	async updateWeaponCost(weaponCostId: number, dto: UpdateWeaponCostRequest) {
+	async updateWeaponCost(id: number, dto: UpdateWeaponCostRequest) {
 		const weaponCost = await this.weaponCostRepo.findOne({
-			where: { id: weaponCostId },
+			where: { id },
 		});
-
 		if (!weaponCost) {
 			throw new WeaponCostNotFoundError();
 		}
-
-		weaponCost.cost = dto.cost;
-		weaponCost.addTime = dto.addTime;
-
+		weaponCost.value = dto.value;
+		weaponCost.unit = dto.unit;
 		await this.weaponCostRepo.save(weaponCost);
+	}
+
+	async listWeaponCosts() {
+		return await this.weaponCostRepo.find();
+	}
+
+	async clearAllWeaponCosts() {
+		await this.weaponCostRepo.clear();
 	}
 }

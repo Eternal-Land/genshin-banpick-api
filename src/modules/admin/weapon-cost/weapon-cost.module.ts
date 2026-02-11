@@ -3,7 +3,7 @@ import { WeaponCostService } from "./weapon-cost.service";
 import { WeaponCostController } from "./weapon-cost.controller";
 
 @Module({
-	providers: [WeaponCostService],
 	controllers: [WeaponCostController],
+	providers: [WeaponCostService],
 })
 export class WeaponCostModule {}

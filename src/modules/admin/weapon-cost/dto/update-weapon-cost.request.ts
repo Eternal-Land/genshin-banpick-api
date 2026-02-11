@@ -1,12 +1,13 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsNumber } from "class-validator";
+import { WeaponCostUnit } from "@utils/enums";
+import { IsEnum, IsNumber } from "class-validator";
 
 export class UpdateWeaponCostRequest {
 	@ApiProperty()
 	@IsNumber()
-	cost: number;
+	value: number;
 
-	@ApiProperty()
-	@IsNumber()
-	addTime: number;
+	@ApiProperty({ enum: WeaponCostUnit })
+	@IsEnum(WeaponCostUnit)
+	unit: WeaponCostUnit;
 }
