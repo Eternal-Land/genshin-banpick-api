@@ -1,9 +1,9 @@
-import { WeaponCostMilestoneEntity } from "@db/entities";
+import { WeaponCostEntity } from "@db/entities";
 import { ApiProperty } from "@nestjs/swagger";
-import { WeaponRarity } from "@utils/enums";
+import { WeaponCostUnit, WeaponRarity } from "@utils/enums";
 import { Builder } from "builder-pattern";
 
-export class WeaponCostMilestoneResponseItem {
+export class WeaponCostResponseItem {
 	@ApiProperty()
 	id: number;
 
@@ -11,22 +11,22 @@ export class WeaponCostMilestoneResponseItem {
 	rarity: WeaponRarity;
 
 	@ApiProperty()
-	cost: number;
+	value: number;
 
 	@ApiProperty()
-	addTime: number;
+	unit: WeaponCostUnit;
 }
 
-export class WeaponCostMilestoneResponse {
+export class WeaponCostResponse {
 	@ApiProperty()
 	upgradeLevel: number;
 
-	@ApiProperty({ type: WeaponCostMilestoneResponseItem, isArray: true })
-	items: WeaponCostMilestoneResponseItem[];
+	@ApiProperty({ type: WeaponCostResponseItem, isArray: true })
+	items: WeaponCostResponseItem[];
 
-	static from(entities: WeaponCostMilestoneEntity[]) {
+	static from(entities: WeaponCostEntity[]) {
 		// Group entities by upgradeLevel
-		const groupedByLevel = new Map<number, WeaponCostMilestoneEntity[]>();
+		const groupedByLevel = new Map<number, WeaponCostEntity[]>();
 		for (const entity of entities) {
 			const group = groupedByLevel.get(entity.upgradeLevel) ?? [];
 			group.push(entity);
@@ -34,21 +34,21 @@ export class WeaponCostMilestoneResponse {
 		}
 
 		// Convert grouped entities to response format
-		const response: WeaponCostMilestoneResponse[] = [];
+		const response: WeaponCostResponse[] = [];
 		for (const [upgradeLevel, levelEntities] of groupedByLevel) {
 			const items = levelEntities
 				.map((entity) =>
-					Builder(WeaponCostMilestoneResponseItem)
+					Builder(WeaponCostResponseItem)
 						.id(entity.id)
 						.rarity(entity.weaponRarity)
-						.cost(entity.cost)
-						.addTime(entity.addTime)
+						.value(entity.value)
+						.unit(entity.unit)
 						.build(),
 				)
 				.sort((a, b) => b.rarity - a.rarity);
 
 			response.push(
-				Builder(WeaponCostMilestoneResponse)
+				Builder(WeaponCostResponse)
 					.upgradeLevel(upgradeLevel)
 					.items(items)
 					.build(),

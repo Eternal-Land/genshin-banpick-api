@@ -8,4 +8,3 @@ export * from "./cost-milestone.repository";
 export * from "./character-cost.repository";
 export * from "./account-character.repository";
 export * from "./weapon-cost.repository";
-export * from "./weapon-cost-milestone.repository";
