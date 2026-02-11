@@ -46,7 +46,7 @@ export class CostMilestoneService {
 		const costMilestone = this.costMilestoneRepo.create({
 			costFrom: dto.costFrom,
 			costTo: dto.costTo,
-			costValuePerSec: dto.costValuePerSec,
+			secPerCost: dto.secPerCost,
 			createdById: currentAccountId,
 		});
 
@@ -64,8 +64,8 @@ export class CostMilestoneService {
 		if (dto.costTo !== undefined) {
 			costMilestone.costTo = dto.costTo;
 		}
-		if (dto.costValuePerSec !== undefined) {
-			costMilestone.costValuePerSec = dto.costValuePerSec;
+		if (dto.secPerCost !== undefined) {
+			costMilestone.secPerCost = dto.secPerCost;
 		}
 		costMilestone.updatedById = currentAccountId;
 

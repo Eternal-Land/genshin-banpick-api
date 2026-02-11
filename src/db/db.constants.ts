@@ -83,7 +83,7 @@ export const ColumnNames = {
 		id: "cost_milestone_id",
 		costFrom: "cost_from",
 		costTo: "cost_to",
-		costValuePerSec: "cost_value_per_sec",
+		secPerCost: "sec_per_cost",
 	},
 	WeaponCost: {
 		id: "weapon_cost_id",

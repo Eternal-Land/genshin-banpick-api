@@ -30,7 +30,7 @@ export class WeaponCostService implements OnModuleInit {
 	@Transactional()
 	async initMilestones() {
 		const promises: Promise<void>[] = [];
-		for (let i = 1; i <= 6; i++) {
+		for (let i = 1; i <= 5; i++) {
 			for (const key in WeaponRarity) {
 				if (!isNaN(Number(key))) continue;
 				promises.push(
