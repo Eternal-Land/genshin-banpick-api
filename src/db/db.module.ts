@@ -10,7 +10,9 @@ import {
 	PermissionRepository,
 	StaffRolePermissionRepository,
 	StaffRoleRepository,
+	WeaponCostRepository,
 	WeaponRepository,
+	AccountCharacterRepository,
 } from "./repositories";
 
 const repositories = [
@@ -22,6 +24,8 @@ const repositories = [
 	WeaponRepository,
 	CharacterCostRepository,
 	CostMilestoneRepository,
+	AccountCharacterRepository,
+	WeaponCostRepository,
 ];
 
 @Global()
