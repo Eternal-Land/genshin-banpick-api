@@ -2,442 +2,350 @@
 
 ## Project Overview
 
-This is a NestJS-based API for the Genshin Banpick application. It uses TypeORM for database management with MySQL, JWT for authentication, and follows a modular architecture with role-based access control (RBAC).
+This is a **NestJS** API backend for a Genshin Impact ban/pick management system. It uses **TypeORM** with MySQL, **nestjs-cls** for request context, and follows a modular architecture.
 
 ## Tech Stack
 
-- **Framework**: NestJS (v11)
-- **Database**: MySQL with TypeORM (v0.3.28)
-- **Authentication**: JWT (jsonwebtoken)
-- **Runtime**: Node.js with TypeScript
-- **Package Manager**: Bun
+- **Framework**: NestJS 11+
+- **Language**: TypeScript 5.x
+- **Database**: MySQL with TypeORM 0.3.x
+- **Authentication**: JWT with bcryptjs
 - **Validation**: class-validator + class-transformer
-- **API Documentation**: Swagger/OpenAPI
+- **API Documentation**: Swagger (@nestjs/swagger)
+- **Transaction Management**: typeorm-transactional
 - **File Storage**: Cloudinary
-- **Security**: Helmet, bcryptjs
-- **Context Management**: nestjs-cls (ClsModule)
+- **Context Management**: nestjs-cls
 
 ## Project Structure
 
-### Path Aliases
-
-- `@db`: `src/db` - Database entities, repositories, and configurations
-- `@modules`: `src/modules` - Feature modules
-- `@utils`: `src/utils` - Utilities, decorators, DTOs, enums
-- `@errors`: `src/errors` - Error definitions
-- `@providers`: `src/providers` - Third-party service integrations
-
-### Module Organization
-
-Each module follows this structure:
-
 ```
-@modules/
-  feature-name/
-    feature-name.module.ts
-    feature-name.service.ts
-    feature-name.controller.ts
-    index.ts (exports module, service, controller)
-    dto/
-      *.request.ts (input DTOs)
-      *.response.ts (output DTOs)
-      index.ts
-    errors/
-      *.error.ts (module-specific errors)
-      index.ts
+src/
+├── main.ts              # Application entry point
+├── app.module.ts        # Root module
+├── db/                  # Database layer
+│   ├── entities/        # TypeORM entities
+│   ├── repositories/    # Custom repositories
+│   ├── migrations/      # Database migrations
+│   ├── seeder/          # Data seeding
+│   ├── db.module.ts     # Database module
+│   └── db.constants.ts  # Table/column/index naming constants
+├── errors/              # Global error classes
+├── modules/             # Feature modules
+│   ├── admin/           # Admin-specific modules
+│   ├── auth/            # Authentication module
+│   ├── files/           # File upload module
+│   ├── hoyolab/         # HoYoLAB integration
+│   ├── self/            # Current user profile
+│   └── user/            # User-facing modules
+├── providers/           # External service providers
+└── utils/               # Shared utilities
+    ├── decorators/      # Custom decorators
+    ├── dto/             # Shared DTOs
+    ├── enums/           # Enumerations
+    ├── types/           # TypeScript types
+    └── constants/       # App constants
 ```
 
-## Core Patterns & Conventions
+## Path Aliases
 
-### 1. Authentication & Authorization
-
-**Global Authentication**:
-
-- `AuthGuard` is registered globally via `APP_GUARD` in `app.module.ts`
-- All routes require authentication by default
-- Use `@SkipAuth()` decorator to bypass authentication
-
-**Skip Authentication**:
+Use these path aliases defined in `tsconfig.json`:
 
 ```typescript
-@Get('public')
-@SkipAuth()
-async getPublicData() {
-  // No auth required
-}
+import { ... } from "@utils";        // src/utils
+import { ... } from "@utils/*";      // src/utils/*
+import { ... } from "@errors";       // src/errors
+import { ... } from "@db";           // src/db
+import { ... } from "@db/*";         // src/db/*
+import { ... } from "@modules/*";    // src/modules/*
+import { ... } from "@providers/*";  // src/providers/*
 ```
 
-**Permission-Based Authorization**:
+## Coding Conventions
+
+### Entity Definitions
+
+- Use `db.constants.ts` for all table, column, and index names
+- Always include `createdAt`, `updatedAt`, `createdById`, `updatedById`, `isActive` for trackable entities
+- Use explicit column names via `ColumnNames`
+- Set `createForeignKeyConstraints: false` on relations to avoid constraint issues
 
 ```typescript
-@Get()
-@RequirePermission('admin.staff.list')
-async listStaff() {
-  // Only accounts with this permission can access
-}
-```
+import { ColumnNames, IndexNames, TableNames } from "@db/db.constants";
 
-**Permission Codes**: Defined in `@utils/constants/permissions.ts` as `PERMISSIONS_MAP`
+@Entity(TableNames.Character)
+export class CharacterEntity {
+	@PrimaryGeneratedColumn("increment", { name: ColumnNames.Character.id })
+	id: number;
 
-**Account Roles**:
-
-- `ADMIN`: Super admin with all permissions
-- `STAFF`: Staff with role-based permissions
-- `USER`: Regular user
-
-### 2. Error Handling
-
-**Custom Errors**: All errors must extend `ApiError` class:
-
-```typescript
-export class SampleError extends ApiError<DataType> {
-	constructor(data?: DataType) {
-		super({
-			code: ErrorCode.SAMPLE_ERROR,
-			message: "Sample Error!",
-			detail: data,
-			status: 400, // HTTP status code
-		});
-	}
-}
-```
-
-**Error Codes**: Define in `@utils/enums/error-code.ts`
-
-**Global Exception Filter**: `MyExceptionFilter` catches all errors and formats responses
-
-### 3. API Response Format
-
-**Success Response**:
-
-```typescript
-return BaseApiResponse.success(data, pagination);
-```
-
-**Error Response** (handled by exception filter):
-
-```typescript
-throw new SampleError(detail);
-```
-
-**Response Structure**:
-
-```typescript
-{
-  code: ErrorCode,
-  message: string,
-  data?: T,
-  error?: any,
-  pagination?: PaginationDto
-}
-```
-
-### 4. Swagger Documentation
-
-**Controller-Level**:
-
-```typescript
-@Controller("/admin/staffs")
-@ApiBearerAuth() // Require bearer token
-export class StaffController {}
-```
-
-**Endpoint-Level**:
-
-```typescript
-@Get()
-@SwaggerBaseApiResponse(StaffResponse, { isArray: true })
-async listStaff() {}
-```
-
-### 5. Database Entities
-
-**Entity Naming Convention**:
-
-- File: `{name}.entity.ts`
-- Class: `{Name}Entity`
-- Table name: Use `TableNames` from `@db/db.constants`
-- Column names: Use `ColumnNames` from `@db/db.constants`
-
-**Entity Example**:
-
-```typescript
-@Entity(TableNames.Sample)
-export class SampleEntity {
-	@PrimaryGeneratedColumn("uuid", { name: ColumnNames.Sample.id })
-	id: string;
-
-	@Column({ name: ColumnNames.Sample.name })
+	@Column({ name: ColumnNames.Character.name })
 	name: string;
 
-	@CreateDateColumn({ name: ColumnNames.Global.createdAt })
-	createdAt: Date;
+	@Index(IndexNames.Character.isActive)
+	@Column({ name: ColumnNames.Global.isActive, default: true })
+	isActive: boolean;
 
-	@Column({ name: ColumnNames.Global.createdById, nullable: true })
-	createdById: string;
-
-	@ManyToOne(() => AccountEntity, {
-		createForeignKeyConstraints: false,
-		nullable: true,
-	})
+	@ManyToOne(() => AccountEntity, { createForeignKeyConstraints: false })
 	@JoinColumn({ name: ColumnNames.Global.createdById })
 	createdBy: AccountEntity;
 }
 ```
 
-**Export Entity**: Add to `@db/entities/index.ts`
+### Repository Pattern
 
-**Migration Commands**:
-
-```bash
-npm run migration:generate  # Generate migration
-npm run migration:run       # Apply migration
-```
-
-### 6. Repositories
-
-**Create Repository**:
+- Extend TypeORM's `Repository` class
+- Inject `DataSource` in constructor
+- Register in `db.module.ts`
 
 ```typescript
-// sample.repository.ts
 @Injectable()
-export class SampleRepository extends Repository<SampleEntity> {
-	constructor(private dataSource: DataSource) {
-		super(SampleEntity, dataSource.createEntityManager());
+export class CharacterRepository extends Repository<CharacterEntity> {
+	constructor(datasource: DataSource) {
+		super(CharacterEntity, datasource.createEntityManager());
 	}
 }
 ```
 
-**Export & Register**:
+### Module Structure
 
-1. Export in `@db/repositories/index.ts`
-2. Add to `providers` in `@db/db.module.ts`
+Each feature module follows this structure:
 
-### 7. DTOs
+```
+module-name/
+├── module-name.controller.ts  # HTTP endpoints
+├── module-name.service.ts     # Business logic
+├── module-name.module.ts      # Module definition
+├── index.ts                   # Barrel exports
+├── dto/                       # Request/Response DTOs
+│   ├── create-*.request.ts
+│   ├── update-*.request.ts
+│   ├── *.query.ts
+│   ├── *.response.ts
+│   └── index.ts
+└── errors/                    # Module-specific errors
+    ├── *.error.ts
+    └── index.ts
+```
 
-**Request DTO** (validation):
+### DTO Patterns
+
+**Request DTOs** - Use class-validator decorators:
 
 ```typescript
-export class CreateSampleRequest {
+export class CreateCharacterRequest {
+	@ApiProperty()
 	@IsString()
 	@IsNotEmpty()
-	name: string;
+	key: string;
 
-	@IsEmail()
-	email: string;
-
-	@IsOptional()
-	@IsString()
-	description?: string;
+	@ApiProperty({ enum: CharacterElement })
+	@IsEnum(CharacterElement)
+	element: CharacterElement;
 }
 ```
 
-**Response DTO** (transformation):
+**Response DTOs** - Use Builder pattern with `fromEntity` static method:
 
 ```typescript
-export class SampleResponse {
-	id: string;
-	name: string;
-	createdAt: Date;
+export class CharacterResponse {
+	@ApiProperty()
+	id: number;
 
-	static fromEntity(entity: SampleEntity): SampleResponse {
-		return {
-			id: entity.id,
-			name: entity.name,
-			createdAt: entity.createdAt,
-		};
+	@ApiProperty()
+	name: string;
+
+	static fromEntity(entity: CharacterEntity) {
+		return Builder(CharacterResponse).id(entity.id).name(entity.name).build();
 	}
 
-	static fromEntities(entities: SampleEntity[]): SampleResponse[] {
-		return entities.map((e) => this.fromEntity(e));
+	static fromEntities(entities: CharacterEntity[]) {
+		return entities.map((entity) => this.fromEntity(entity));
 	}
 }
 ```
 
-### 8. Services
+**Query DTOs** - Extend `PaginationQuery` for list endpoints:
 
-**Service Pattern**:
+```typescript
+export class CharacterQuery extends PaginationQuery {
+	@ApiProperty({ required: false })
+	search?: string;
+
+	@ApiProperty({ required: false, enum: CharacterElement, isArray: true })
+	@IsEnum(CharacterElement, { each: true })
+	@IsOptional()
+	@TransformToNumberArray()
+	element?: CharacterElement[];
+}
+```
+
+### Controller Patterns
+
+```typescript
+@Controller("/admin/characters")
+@ApiBearerAuth()
+export class CharacterController {
+	constructor(private readonly characterService: CharacterService) {}
+
+	@Get()
+	@RequirePermission("admin.character.list")
+	@SwaggerBaseApiResponse(CharacterResponse, { isArray: true })
+	async listCharacters(@Query() query: CharacterQuery) {
+		const { characters, total } =
+			await this.characterService.listCharacters(query);
+		return BaseApiResponse.successWithPagination(
+			CharacterResponse.fromEntities(characters),
+			PaginationDto.from(query.page, query.take, total),
+		);
+	}
+
+	@Get(":id")
+	@RequirePermission("admin.character.detail")
+	@SwaggerBaseApiResponse(CharacterResponse)
+	async getCharacter(@Param("id", ParseIntPipe) id: number) {
+		const character = await this.characterService.getCharacter(id);
+		return BaseApiResponse.success(CharacterResponse.fromEntity(character));
+	}
+}
+```
+
+### Service Patterns
+
+- Use `@Transactional()` for write operations
+- Access current user via `ClsService<GenshinBanpickCls>`
+- Throw custom `ApiError` subclasses for errors
 
 ```typescript
 @Injectable()
-export class SampleService {
+export class CharacterService {
 	constructor(
-		private readonly sampleRepo: SampleRepository,
+		private readonly characterRepo: CharacterRepository,
 		private readonly cls: ClsService<GenshinBanpickCls>,
 	) {}
 
-	async create(dto: CreateSampleRequest) {
-		const profile = this.cls.get("profile"); // Current user
+	@Transactional()
+	async createCharacter(dto: CreateCharacterRequest) {
+		const currentAccountId = this.cls.get("profile.id");
 
-		const sample = this.sampleRepo.create({
+		const character = this.characterRepo.create({
 			...dto,
-			createdById: profile.id,
+			createdById: currentAccountId,
 		});
 
-		return await this.sampleRepo.save(sample);
+		return this.characterRepo.save(character);
 	}
 }
 ```
 
-### 9. Controllers
+### Error Handling
 
-**Controller Pattern**:
+Create module-specific errors extending `ApiError`:
 
 ```typescript
-@Controller("/samples")
-@ApiBearerAuth()
-export class SampleController {
-	constructor(private readonly sampleService: SampleService) {}
+import { ApiError } from "@errors";
+import { ErrorCode } from "@utils/enums";
 
-	@Get()
-	@RequirePermission("sample.list")
-	@SwaggerBaseApiResponse(SampleResponse, { isArray: true })
-	async list() {
-		const samples = await this.sampleService.list();
-		return BaseApiResponse.success(SampleResponse.fromEntities(samples));
-	}
-
-	@Post()
-	@RequirePermission("sample.create")
-	@SwaggerBaseApiResponse(SampleResponse)
-	async create(@Body() dto: CreateSampleRequest) {
-		const sample = await this.sampleService.create(dto);
-		return BaseApiResponse.success(SampleResponse.fromEntity(sample));
-	}
-
-	@Put(":id")
-	@RequirePermission("sample.update")
-	@SwaggerBaseApiResponse(SampleResponse)
-	async update(
-		@Param("id", ParseUUIDPipe) id: string,
-		@Body() dto: UpdateSampleRequest,
-	) {
-		const sample = await this.sampleService.update(id, dto);
-		return BaseApiResponse.success(SampleResponse.fromEntity(sample));
+export class CharacterNotFoundError extends ApiError {
+	constructor() {
+		super({
+			code: ErrorCode.CHARACTER_NOT_FOUND,
+			message: "Character not found",
+			status: 404,
+		});
 	}
 }
 ```
 
-### 10. Environment Variables
+When adding new errors:
 
-**Add New Variable**:
+1. Add error code to `src/utils/enums/error-code.ts`
+2. Create error class in module's `errors/` folder
+3. Export from `errors/index.ts`
+
+### Authentication & Authorization
+
+- All endpoints require authentication by default
+- Use `@SkipAuth()` to make an endpoint public
+- Use `@RequirePermission("permission.code")` for role-based access
+- Admin users bypass permission checks
+
+```typescript
+@Post("/public-endpoint")
+@SkipAuth()
+async publicEndpoint() { ... }
+
+@Post("/admin-only")
+@RequirePermission("admin.character.create")
+async adminOnlyEndpoint() { ... }
+```
+
+### API Response Format
+
+Always use `BaseApiResponse` wrapper:
+
+```typescript
+// Success
+return BaseApiResponse.success(data);
+
+// Success with pagination
+return BaseApiResponse.successWithPagination(
+	data,
+	PaginationDto.from(page, take, total),
+);
+
+// Success with cursor
+return BaseApiResponse.successWithCursor(data, nextCursor);
+```
+
+### Environment Variables
+
+Access via the `Env` object from `@utils/env`:
+
+```typescript
+import { Env } from "@utils";
+
+const port = Env.LISTEN_PORT;
+const secret = Env.JWT_AT_SECRET;
+```
+
+When adding new env variables:
 
 1. Add to `.env` file
-2. Add to `Env` object in `@utils/env.ts`:
+2. Add to `src/utils/env.ts` with proper type coercion
 
-```typescript
-export const Env = {
-	NEW_VAR: process.env.NEW_VAR || "",
-	// or for numbers:
-	NEW_NUMBER: Number(process.env.NEW_NUMBER || "0"),
-	// or for booleans:
-	NEW_BOOL: process.env.NEW_BOOL === "true",
-} as const;
-```
-
-### 11. Current User Context
-
-Access current authenticated user via CLS:
-
-```typescript
-constructor(private readonly cls: ClsService<GenshinBanpickCls>) {}
-
-async someMethod() {
-  const profile = this.cls.get('profile'); // ProfileResponse
-  // profile.id, profile.email, profile.role, etc.
-}
-```
-
-## Development Commands
+## Database Commands
 
 ```bash
-bun install              # Install dependencies
-bun run start:dev        # Start in watch mode
-bun run build            # Build for production
-bun run start:prod       # Start production build
-bun run lint             # Lint code
-bun run lint:fix         # Fix linting issues
-bun run prettier         # Check formatting
-bun run prettier:fix     # Fix formatting
-bun run migration:generate  # Generate migration
-bun run migration:run    # Run migrations
+# Generate migration
+bun run migration:generate
+
+# Run migrations
+bun run migration:run
+
+# Seed database
+bun run seed
 ```
 
-## Creating New Features
+## Naming Conventions
 
-### Step-by-Step Guide
+| Type         | Convention                     | Example                          |
+| ------------ | ------------------------------ | -------------------------------- |
+| Entity       | PascalCase + Entity suffix     | `CharacterEntity`                |
+| Repository   | PascalCase + Repository suffix | `CharacterRepository`            |
+| Controller   | PascalCase + Controller suffix | `CharacterController`            |
+| Service      | PascalCase + Service suffix    | `CharacterService`               |
+| Module       | PascalCase + Module suffix     | `CharacterModule`                |
+| Error        | PascalCase + Error suffix      | `CharacterNotFoundError`         |
+| Request DTO  | PascalCase + Request suffix    | `CreateCharacterRequest`         |
+| Response DTO | PascalCase + Response suffix   | `CharacterResponse`              |
+| Query DTO    | PascalCase + Query suffix      | `CharacterQuery`                 |
+| Table names  | snake_case                     | `character`, `account_character` |
+| Column names | snake_case                     | `character_name`, `created_at`   |
 
-1. **Define Entity** (if needed):
-   - Create `{name}.entity.ts` in `@db/entities`
-   - Use `TableNames` and `ColumnNames`
-   - Export in `@db/entities/index.ts`
-   - Run migration commands
+## Code Style
 
-2. **Create Repository** (if needed):
-   - Create `{name}.repository.ts` in `@db/repositories`
-   - Extend `Repository<EntityType>`
-   - Export in `@db/repositories/index.ts`
-   - Register in `@db/db.module.ts`
-
-3. **Create Module**:
-   - Create folder in `@modules/{feature-name}`
-   - Create `{feature-name}.module.ts`
-   - Create `{feature-name}.service.ts`
-   - Create `{feature-name}.controller.ts`
-   - Create `index.ts` with exports
-
-4. **Define DTOs**:
-   - Create `dto/` folder
-   - Add `*.request.ts` for inputs (with validation)
-   - Add `*.response.ts` for outputs (with fromEntity methods)
-   - Export in `dto/index.ts`
-
-5. **Define Errors** (if needed):
-   - Create `errors/` folder
-   - Add `*.error.ts` extending `ApiError`
-   - Add error code to `@utils/enums/error-code.ts`
-   - Export in `errors/index.ts`
-
-6. **Add Permissions** (if needed):
-   - Add to `PERMISSIONS_MAP` in `@utils/constants/permissions.ts`
-   - Use `@RequirePermission()` decorator in controller
-
-7. **Register Module**:
-   - Import in `app.module.ts`
-
-## Best Practices
-
-1. **Always use path aliases** (`@db`, `@modules`, `@utils`, `@errors`, `@providers`)
-2. **Use DTOs for validation and transformation** (separate request/response)
-3. **Extend ApiError for custom errors** with proper error codes
-4. **Use BaseApiResponse.success()** for all successful responses
-5. **Apply @ApiBearerAuth()** on protected controllers
-6. **Use @SwaggerBaseApiResponse()** for proper API documentation
-7. **Use CLS context** to access current user instead of passing through parameters
-8. **Follow naming conventions**: entities end with `Entity`, DTOs with `Request`/`Response`
-9. **Use builder-pattern** for complex object construction
-10. **Export all public items** through `index.ts` files
-11. **Use ParseUUIDPipe** for UUID parameters
-12. **Keep services thin** - business logic in services, not controllers
-13. **Use proper HTTP status codes** in error definitions
-
-## Security Notes
-
-- All routes are protected by default (AuthGuard is global)
-- JWT tokens are validated on every request
-- Passwords are hashed with bcryptjs (10 rounds)
-- CORS is enabled for all origins (configure for production)
-- Helmet is configured for security headers
-- Admin account is auto-created on first run
-
-## API Documentation
-
-Access Swagger UI at `/api/docs` when `ENABLE_SWAGGER=true`
-
-## Notes
-
-- This project uses Bun as package manager
-- MySQL is the primary database
-- TypeORM is configured for automatic entity discovery
-- Global validation pipe transforms and validates all inputs
-- Global exception filter handles all errors consistently
+- Use tabs for indentation
+- Use double quotes for strings
+- Always use explicit return types for public methods
+- Prefer async/await over raw promises
+- Use `Builder` pattern from `builder-pattern` for response DTOs
+- Use barrel exports (`index.ts`) in each folder
