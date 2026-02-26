@@ -18,5 +18,5 @@ export class CreateCostMilestoneRequest {
 	@ApiProperty({ description: "Cost value per second for this milestone" })
 	@IsNotEmpty()
 	@Min(0)
-	costValuePerSec: number;
+	secPerCost: number;
 }

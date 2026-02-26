@@ -4,6 +4,7 @@ import { GenshinBanpickCls } from "@utils";
 import { ClsService } from "nestjs-cls";
 import { CreateCostMilestoneRequest, UpdateCostMilestoneRequest } from "./dto";
 import { CostMilestoneNotFoundError } from "./errors";
+import { Transactional } from "typeorm-transactional";
 
 @Injectable()
 export class CostMilestoneService {
@@ -38,19 +39,21 @@ export class CostMilestoneService {
 		return costMilestone;
 	}
 
+	@Transactional()
 	async createCostMilestone(dto: CreateCostMilestoneRequest) {
 		const currentAccountId = this.cls.get("profile.id");
 
 		const costMilestone = this.costMilestoneRepo.create({
 			costFrom: dto.costFrom,
 			costTo: dto.costTo,
-			costValuePerSec: dto.costValuePerSec,
+			secPerCost: dto.secPerCost,
 			createdById: currentAccountId,
 		});
 
 		return await this.costMilestoneRepo.save(costMilestone);
 	}
 
+	@Transactional()
 	async updateCostMilestone(id: number, dto: UpdateCostMilestoneRequest) {
 		const costMilestone = await this.getCostMilestone(id);
 		const currentAccountId = this.cls.get("profile.id");
@@ -61,14 +64,15 @@ export class CostMilestoneService {
 		if (dto.costTo !== undefined) {
 			costMilestone.costTo = dto.costTo;
 		}
-		if (dto.costValuePerSec !== undefined) {
-			costMilestone.costValuePerSec = dto.costValuePerSec;
+		if (dto.secPerCost !== undefined) {
+			costMilestone.secPerCost = dto.secPerCost;
 		}
 		costMilestone.updatedById = currentAccountId;
 
 		return await this.costMilestoneRepo.save(costMilestone);
 	}
 
+	@Transactional()
 	async deleteCostMilestone(id: number) {
 		const costMilestone = await this.getCostMilestone(id);
 		return await this.costMilestoneRepo.remove(costMilestone);

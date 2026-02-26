@@ -1,4 +1,5 @@
 export * from "./account.entity";
+export * from "./account-character.entity";
 export * from "./staff-role.entity";
 export * from "./permission.entity";
 export * from "./staff-role-permission.entity";
@@ -6,3 +7,7 @@ export * from "./character.entity";
 export * from "./weapon.entity";
 export * from "./character-cost.entity";
 export * from "./cost-milestone.entity";
+export * from "./weapon-cost.entity";
+export * from "./match.entity";
+export * from "./match-session.entity";
+export * from "./match-participant.entity";

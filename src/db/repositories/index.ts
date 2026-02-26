@@ -6,3 +6,8 @@ export * from "./character.repository";
 export * from "./weapon.repository";
 export * from "./cost-milestone.repository";
 export * from "./character-cost.repository";
+export * from "./account-character.repository";
+export * from "./weapon-cost.repository";
+export * from "./match.repository";
+export * from "./match-session.repository";
+export * from "./match-participant.repository";

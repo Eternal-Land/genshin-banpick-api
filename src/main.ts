@@ -4,21 +4,31 @@ import { Env, MyExceptionFilter } from "@utils";
 import helmet from "helmet";
 import { initializeTransactionalContext } from "typeorm-transactional";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
-import { ValidationPipe } from "@nestjs/common";
+import { INestApplication, ValidationPipe } from "@nestjs/common";
 import { ApiValidationError } from "@errors";
 import * as dayjs from "dayjs";
 import * as utc from "dayjs/plugin/utc";
 import * as timezone from "dayjs/plugin/timezone";
+import * as cookieParser from "cookie-parser";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
+
+function setupCors(app: INestApplication<any>) {
+	const origins = Env.CORS_ORIGINS.split(",").map((origin) => origin.trim());
+	app.enableCors({
+		origin: origins,
+		credentials: true,
+	});
+}
 
 async function bootstrap() {
 	initializeTransactionalContext();
 
 	const app = await NestFactory.create(AppModule);
 	app.setGlobalPrefix("/api");
-	app.enableCors({ origin: "*" });
+	setupCors(app);
+	app.use(cookieParser());
 	app.useGlobalPipes(
 		new ValidationPipe({
 			exceptionFactory: (errors) => new ApiValidationError(errors),
