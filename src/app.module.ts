@@ -19,6 +19,7 @@ import { UserCharacterModule } from "@modules/user/character";
 import { MatchModule } from "@modules/user/match";
 import { WeaponCostModule } from "@modules/admin/weapon-cost";
 import { UserModule } from "@modules/user/user";
+import { SocketModule } from "@modules/socket";
 
 @Module({
 	imports: [
@@ -46,6 +47,7 @@ import { UserModule } from "@modules/user/user";
 		MatchModule,
 		WeaponCostModule,
 		UserModule,
+		SocketModule,
 	],
 	controllers: [],
 	providers: [

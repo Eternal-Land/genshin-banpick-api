@@ -99,6 +99,9 @@ export class AuthGuard implements CanActivate {
 	}
 
 	private getTokenFromRequest(req: Request): string | undefined {
-		return req.headers["authorization"]?.replace("Bearer ", "");
+		return (
+			req.headers["authorization"]?.replace("Bearer ", "") ||
+			req.cookies.accessToken
+		);
 	}
 }
