@@ -10,6 +10,9 @@ export const TableNames = {
 	CharacterCost: "character_cost",
 	CostMilestone: "cost_milestone",
 	WeaponCost: "weapon_cost",
+	Match: "match",
+	MatchParticipant: "match_participant",
+	MatchSession: "match_session",
 };
 
 export const ColumnNames = {
@@ -91,6 +94,21 @@ export const ColumnNames = {
 		unit: "unit",
 		value: "value",
 		upgradeLevel: "upgrade_level",
+	},
+	Match: {
+		id: "match_id",
+		hostId: "host_id",
+		sessionCount: "session_count",
+		name: "match_name",
+	},
+	MatchSession: {
+		id: "match_session_id",
+		redParticipantId: "red_participant_id",
+		blueParticipantId: "blue_participant_id",
+	},
+	MatchParticipant: {
+		id: "match_participant_id",
+		participantId: "participant_id",
 	},
 };
 
