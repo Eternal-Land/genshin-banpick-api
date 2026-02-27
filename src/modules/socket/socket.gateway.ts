@@ -25,8 +25,9 @@ export class SocketGateway
 		this.socketService.server = server;
 	}
 
-	handleConnection(client: Socket) {
+	async handleConnection(client: Socket) {
 		console.log("Client connected:", client.id);
+		await this.socketService.initializeConnection(client);
 	}
 
 	handleDisconnect(client: Socket) {

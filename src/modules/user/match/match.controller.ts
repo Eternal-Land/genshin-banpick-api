@@ -19,6 +19,7 @@ import {
 } from "@utils";
 import {
 	CreateMatchRequest,
+	InviteParticipantRequest,
 	MatchQuery,
 	MatchResponse,
 	UpdateMatchRequest,
@@ -35,6 +36,14 @@ export class MatchController {
 	async createOne(@Body() dto: CreateMatchRequest) {
 		const match = await this.matchService.createOne(dto);
 		return BaseApiResponse.success(MatchResponse.fromEntity(match));
+	}
+
+	@Post("invite")
+	@SwaggerBaseApiMessageResponse()
+	@ApiBearerAuth()
+	async inviteParticipant(@Body() dto: InviteParticipantRequest) {
+		await this.matchService.inviteParticipant(dto);
+		return BaseApiResponse.success();
 	}
 
 	@Put(":id")

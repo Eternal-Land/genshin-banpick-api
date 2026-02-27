@@ -10,9 +10,11 @@ export const TableNames = {
 	CharacterCost: "character_cost",
 	CostMilestone: "cost_milestone",
 	WeaponCost: "weapon_cost",
+	Notification: "notification",
 	Match: "match",
 	MatchParticipant: "match_participant",
 	MatchSession: "match_session",
+	MatchInvitation: "match_invitation",
 };
 
 export const ColumnNames = {
@@ -95,6 +97,12 @@ export const ColumnNames = {
 		value: "value",
 		upgradeLevel: "upgrade_level",
 	},
+	Notification: {
+		id: "notification_id",
+		type: "notification_type",
+		content: "notification_content",
+		isRead: "is_read",
+	},
 	Match: {
 		id: "match_id",
 		hostId: "host_id",
@@ -109,6 +117,9 @@ export const ColumnNames = {
 	MatchParticipant: {
 		id: "match_participant_id",
 		participantId: "participant_id",
+	},
+	MatchInvitation: {
+		id: "match_invitation_id",
 	},
 };
 

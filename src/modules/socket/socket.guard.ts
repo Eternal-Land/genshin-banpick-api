@@ -7,12 +7,14 @@ import * as jwt from "jsonwebtoken";
 import { Env, SKIP_AUTH_KEY } from "@utils";
 import { ProfileResponse } from "@modules/self/dto";
 import { Reflector } from "@nestjs/core";
+import { SocketService } from "./socket.service";
 
 @Injectable()
 export class SocketGuard implements CanActivate {
 	constructor(
 		private readonly accountRepo: AccountRepository,
 		private readonly reflector: Reflector,
+		private readonly socketService: SocketService,
 	) {}
 
 	async canActivate(context: ExecutionContext) {
@@ -61,8 +63,9 @@ export class SocketGuard implements CanActivate {
 				profile: ProfileResponse.fromEntity(account),
 			};
 
-			if (!client.rooms.has(accountId)) {
-				client.join(accountId);
+			const userRoom = this.socketService.buildUserRoomName(accountId);
+			if (!client.rooms.has(userRoom)) {
+				client.join(userRoom);
 			}
 
 			return true;

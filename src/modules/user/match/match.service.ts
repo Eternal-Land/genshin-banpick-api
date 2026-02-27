@@ -1,5 +1,5 @@
 import {
-	AccountRepository,
+	MatchInvitationRepository,
 	MatchParticipantRepository,
 	MatchRepository,
 	MatchSessionRepository,
@@ -8,9 +8,23 @@ import { Injectable } from "@nestjs/common";
 import { GenshinBanpickCls } from "@utils";
 import { ClsService } from "nestjs-cls";
 import { Transactional } from "typeorm-transactional";
-import { CreateMatchRequest, MatchQuery, UpdateMatchRequest } from "./dto";
-import { MatchAlreadyStartedError, MatchNotFoundError } from "./errors";
+import {
+	CreateMatchRequest,
+	InviteParticipantRequest,
+	MatchInvitationResponse,
+	MatchQuery,
+	UpdateMatchRequest,
+} from "./dto";
+import {
+	AccountAlreadyAParticipantError,
+	MatchAlreadyStartedError,
+	MatchInvitationExistedError,
+	MatchNotFoundError,
+} from "./errors";
 import { MatchEntity } from "@db/entities";
+import { SocketService } from "@modules/socket";
+import { NotificationService } from "@modules/notification";
+import { NotificationType } from "@utils/constants";
 
 interface FindOneOptions {
 	isHost?: boolean;
@@ -20,25 +34,27 @@ interface FindOneOptions {
 @Injectable()
 export class MatchService {
 	constructor(
-		private readonly matchRepository: MatchRepository,
-		private readonly matchSessionRepository: MatchSessionRepository,
+		private readonly matchRepo: MatchRepository,
+		private readonly matchSessionRepo: MatchSessionRepository,
 		private readonly cls: ClsService<GenshinBanpickCls>,
-		private readonly accountRepository: AccountRepository,
-		private readonly matchParticipantRepository: MatchParticipantRepository,
+		private readonly matchParticipantRepo: MatchParticipantRepository,
+		private readonly matchInvitationRepo: MatchInvitationRepository,
+		private readonly socketService: SocketService,
+		private readonly notificationService: NotificationService,
 	) {}
 
 	@Transactional()
 	async createOne(dto: CreateMatchRequest) {
 		const hostId = this.cls.get("profile.id");
 
-		const match = await this.matchRepository.save({
+		const match = await this.matchRepo.save({
 			hostId,
 			sessionCount: dto.sessionCount,
 			name: dto.name,
 		});
 
 		if (dto.isParticipant) {
-			await this.matchParticipantRepository.save({
+			await this.matchParticipantRepo.save({
 				participantId: hostId,
 				matchId: match.id,
 			});
@@ -54,11 +70,11 @@ export class MatchService {
 		match.sessionCount = dto.sessionCount;
 		match.name = dto.name;
 
-		return this.matchRepository.save(match);
+		return this.matchRepo.save(match);
 	}
 
 	async findMany(query: MatchQuery) {
-		const matchQb = this.matchRepository
+		const matchQb = this.matchRepo
 			.createQueryBuilder("match")
 			.innerJoinAndSelect("match.host", "host");
 
@@ -96,7 +112,7 @@ export class MatchService {
 	}
 
 	private async populateParticipants(match: MatchEntity) {
-		const matchParticipants = await this.matchParticipantRepository.find({
+		const matchParticipants = await this.matchParticipantRepo.find({
 			where: { matchId: match.id },
 			relations: {
 				participant: true,
@@ -107,7 +123,7 @@ export class MatchService {
 
 	async findOne(id: string, options: FindOneOptions = {}) {
 		const hostId = this.cls.get("profile.id");
-		const match = await this.matchRepository.findOne({
+		const match = await this.matchRepo.findOne({
 			where: options.isHost ? { id, hostId } : { id },
 			relations: {
 				host: true,
@@ -120,7 +136,7 @@ export class MatchService {
 			throw new MatchNotFoundError();
 		}
 		if (options.isNotStarted) {
-			const sessionCount = await this.matchSessionRepository.count({
+			const sessionCount = await this.matchSessionRepo.count({
 				where: { matchId: id },
 			});
 
@@ -136,8 +152,53 @@ export class MatchService {
 	async deleteOne(id: string) {
 		await this.findOne(id, { isHost: true, isNotStarted: true });
 		await Promise.all([
-			this.matchRepository.delete(id),
-			this.matchParticipantRepository.delete({ matchId: id }),
+			this.matchRepo.delete(id),
+			this.matchParticipantRepo.delete({ matchId: id }),
+			this.matchInvitationRepo.delete({ matchId: id }),
 		]);
+	}
+
+	@Transactional()
+	async inviteParticipant(dto: InviteParticipantRequest) {
+		const match = await this.findOne(dto.matchId, {
+			isHost: true,
+			isNotStarted: true,
+		});
+		await this.populateParticipants(match);
+
+		if (match.participants.some((p) => p.participantId === dto.accountId)) {
+			throw new AccountAlreadyAParticipantError();
+		}
+
+		const matchInvitationExisted = await this.matchInvitationRepo.findOne({
+			where: {
+				matchId: dto.matchId,
+				accountId: dto.accountId,
+			},
+		});
+		if (matchInvitationExisted) {
+			throw new MatchInvitationExistedError();
+		}
+
+		const insertResult = await this.matchInvitationRepo.insert({
+			matchId: dto.matchId,
+			accountId: dto.accountId,
+		});
+
+		const matchInvitation = await this.matchInvitationRepo.findOne({
+			where: { id: insertResult.identifiers[0].id },
+			relations: {
+				account: true,
+			},
+		});
+		matchInvitation.match = match;
+
+		await this.notificationService.notify({
+			userId: dto.accountId,
+			content: JSON.stringify(
+				MatchInvitationResponse.fromEntity(matchInvitation),
+			),
+			type: NotificationType.MATCH_INVITATION,
+		});
 	}
 }

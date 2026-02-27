@@ -20,6 +20,7 @@ import { MatchModule } from "@modules/user/match";
 import { WeaponCostModule } from "@modules/admin/weapon-cost";
 import { UserModule } from "@modules/user/user";
 import { SocketModule } from "@modules/socket";
+import { NotificationModule } from "@modules/notification";
 
 @Module({
 	imports: [
@@ -48,6 +49,7 @@ import { SocketModule } from "@modules/socket";
 		WeaponCostModule,
 		UserModule,
 		SocketModule,
+		NotificationModule,
 	],
 	controllers: [],
 	providers: [

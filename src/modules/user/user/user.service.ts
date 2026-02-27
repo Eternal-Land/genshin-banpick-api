@@ -1,5 +1,5 @@
 import { AccountRepository } from "@db/repositories";
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { SearchUserQuery } from "./dto";
 import { AccountRole } from "@utils/enums";
 import { Brackets } from "typeorm";
@@ -55,6 +55,12 @@ export class UserService {
 						.orWhere("account.displayName = :key", { key });
 				}),
 			);
-		return await qb.getOne();
+		const account = await qb.getOne();
+
+		if (!account) {
+			throw new NotFoundException();
+		}
+
+		return account;
 	}
 }
