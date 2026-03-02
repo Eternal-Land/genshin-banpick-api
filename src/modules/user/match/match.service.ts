@@ -17,6 +17,7 @@ import {
 } from "./dto";
 import {
 	AccountAlreadyAParticipantError,
+	InvitationNotFoundError,
 	MatchAlreadyStartedError,
 	MatchInvitationExistedError,
 	MatchNotFoundError,
@@ -24,7 +25,9 @@ import {
 import { MatchEntity } from "@db/entities";
 import { SocketService } from "@modules/socket";
 import { NotificationService } from "@modules/notification";
-import { NotificationType } from "@utils/constants";
+import { NotificationType, SocketEvents } from "@utils/constants";
+import { ProfileResponse } from "@modules/self/dto";
+import { PermissionDeniedError } from "@modules/auth/errors";
 
 interface FindOneOptions {
 	isHost?: boolean;
@@ -130,6 +133,9 @@ export class MatchService {
 				participants: {
 					participant: true,
 				},
+				invitations: {
+					account: true,
+				},
 			},
 		});
 		if (!match) {
@@ -200,5 +206,85 @@ export class MatchService {
 			),
 			type: NotificationType.MATCH_INVITATION,
 		});
+	}
+
+	@Transactional()
+	async acceptInvitation(invitationId: string) {
+		const currentAccountId = this.cls.get("profile.id");
+		const invitation = await this.matchInvitationRepo.findOne({
+			where: { id: invitationId },
+			relations: {
+				match: true,
+				account: true,
+			},
+		});
+		if (!invitation) {
+			throw new InvitationNotFoundError();
+		}
+		if (invitation.accountId !== currentAccountId) {
+			throw new PermissionDeniedError();
+		}
+
+		const sessionCount = await this.matchSessionRepo.count({
+			where: { matchId: invitation.matchId },
+		});
+		if (sessionCount > 0) {
+			throw new MatchAlreadyStartedError();
+		}
+
+		const match = invitation.match;
+		if (!match) {
+			throw new MatchNotFoundError();
+		}
+		await this.populateParticipants(match);
+
+		if (
+			match.participants.some((p) => p.participantId === invitation.accountId)
+		) {
+			throw new AccountAlreadyAParticipantError();
+		}
+
+		await this.matchParticipantRepo.save({
+			matchId: match.id,
+			participantId: invitation.accountId,
+		});
+
+		await this.matchInvitationRepo.delete(invitation.id);
+		this.socketService.emitToMatch(
+			invitation.matchId,
+			SocketEvents.INVITATION_ACCEPTED,
+			ProfileResponse.fromEntity(invitation.account),
+		);
+	}
+
+	@Transactional()
+	async denyInvitation(invitationId: string) {
+		const currentAccountId = this.cls.get("profile.id");
+		const invitation = await this.matchInvitationRepo.findOne({
+			where: { id: invitationId },
+			relations: {
+				account: true,
+			},
+		});
+		if (!invitation) {
+			throw new InvitationNotFoundError();
+		}
+		if (invitation.accountId !== currentAccountId) {
+			throw new PermissionDeniedError();
+		}
+
+		const sessionCount = await this.matchSessionRepo.count({
+			where: { matchId: invitation.matchId },
+		});
+		if (sessionCount > 0) {
+			throw new MatchAlreadyStartedError();
+		}
+
+		await this.matchInvitationRepo.delete(invitation.id);
+		this.socketService.emitToMatch(
+			invitation.matchId,
+			SocketEvents.INVITATION_DENIED,
+			ProfileResponse.fromEntity(invitation.account),
+		);
 	}
 }

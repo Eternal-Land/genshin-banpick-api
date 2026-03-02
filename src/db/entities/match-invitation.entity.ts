@@ -24,7 +24,9 @@ export class MatchInvitationEntity {
 	@Column({ name: ColumnNames.Match.id })
 	matchId: string;
 
-	@ManyToOne(() => MatchEntity, { createForeignKeyConstraints: false })
+	@ManyToOne(() => MatchEntity, (match) => match.invitations, {
+		createForeignKeyConstraints: false,
+	})
 	@JoinColumn({ name: ColumnNames.Match.id })
 	match: MatchEntity;
 }

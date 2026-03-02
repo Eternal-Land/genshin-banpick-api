@@ -14,6 +14,10 @@ export class SocketService {
 		return `user_${userId}`;
 	}
 
+	buildMatchRoomName(matchId: string) {
+		return `match_${matchId}`;
+	}
+
 	async initializeConnection(client: Socket) {
 		const cookies = parseCookie(client.handshake.headers.cookie || "");
 		const token = cookies["accessToken"];
@@ -37,5 +41,10 @@ export class SocketService {
 	emitToUser(userId: string, event: SocketEventType, data?: any) {
 		const userRoom = this.buildUserRoomName(userId);
 		this.server.to(userRoom).emit(event, data);
+	}
+
+	emitToMatch(matchId: string, event: SocketEventType, data?: any) {
+		const matchRoom = this.buildMatchRoomName(matchId);
+		this.server.to(matchRoom).emit(event, data);
 	}
 }

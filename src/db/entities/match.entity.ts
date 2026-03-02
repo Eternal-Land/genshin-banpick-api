@@ -11,6 +11,7 @@ import {
 import { AccountEntity } from "./account.entity";
 import { MatchSessionEntity } from "./match-session.entity";
 import { MatchParticipantEntity } from "./match-participant.entity";
+import { MatchInvitationEntity } from "./match-invitation.entity";
 
 @Entity(TableNames.Match)
 export class MatchEntity {
@@ -38,4 +39,7 @@ export class MatchEntity {
 
 	@OneToMany(() => MatchParticipantEntity, (participant) => participant.match)
 	participants: MatchParticipantEntity[];
+
+	@OneToMany(() => MatchInvitationEntity, (invitation) => invitation.match)
+	invitations: MatchInvitationEntity[];
 }
