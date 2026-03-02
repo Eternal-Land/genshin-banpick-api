@@ -17,7 +17,7 @@ export class NotificationEntity {
 	@Column({ name: ColumnNames.Notification.type })
 	type: string;
 
-	@Column({ name: ColumnNames.Notification.content })
+	@Column({ name: ColumnNames.Notification.content, type: "text" })
 	content: string;
 
 	@Column({ name: ColumnNames.Notification.isRead, default: false })
