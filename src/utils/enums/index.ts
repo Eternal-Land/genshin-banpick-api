@@ -4,3 +4,4 @@ export * from "./character-element";
 export * from "./weapon-type";
 export * from "./weapon-rarity";
 export * from "./weapon-cost-unit";
+export * from "./match-type";

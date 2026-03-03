@@ -108,6 +108,7 @@ export const ColumnNames = {
 		hostId: "host_id",
 		sessionCount: "session_count",
 		name: "match_name",
+		type: "match_type",
 	},
 	MatchSession: {
 		id: "match_session_id",

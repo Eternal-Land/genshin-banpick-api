@@ -21,6 +21,8 @@ import {
 	MatchAlreadyStartedError,
 	MatchInvitationExistedError,
 	MatchNotFoundError,
+	MatchParticipantLimitReachedError,
+	ParticipantNotFoundError,
 } from "./errors";
 import { MatchEntity } from "@db/entities";
 import { SocketService } from "@modules/socket";
@@ -36,6 +38,7 @@ interface FindOneOptions {
 
 @Injectable()
 export class MatchService {
+	private readonly MAX_MATCH_PARTICIPANTS = 2;
 	constructor(
 		private readonly matchRepo: MatchRepository,
 		private readonly matchSessionRepo: MatchSessionRepository,
@@ -54,6 +57,7 @@ export class MatchService {
 			hostId,
 			sessionCount: dto.sessionCount,
 			name: dto.name,
+			type: dto.type,
 		});
 
 		if (dto.isParticipant) {
@@ -68,12 +72,17 @@ export class MatchService {
 
 	@Transactional()
 	async updateOne(id: string, dto: UpdateMatchRequest) {
-		const match = await this.findOne(id, { isHost: true, isNotStarted: true });
+		let match = await this.findOne(id, { isHost: true, isNotStarted: true });
 
 		match.sessionCount = dto.sessionCount;
 		match.name = dto.name;
+		match.type = dto.type;
 
-		return this.matchRepo.save(match);
+		match = await this.matchRepo.save(match);
+
+		this.socketService.emitToMatch(id, SocketEvents.MATCH_INFO_UPDATED);
+
+		return match;
 	}
 
 	async findMany(query: MatchQuery) {
@@ -124,6 +133,12 @@ export class MatchService {
 		match.participants = matchParticipants;
 	}
 
+	private validateParticipantLimit(match: MatchEntity) {
+		if (match.participants.length >= this.MAX_MATCH_PARTICIPANTS) {
+			throw new MatchParticipantLimitReachedError();
+		}
+	}
+
 	async findOne(id: string, options: FindOneOptions = {}) {
 		const hostId = this.cls.get("profile.id");
 		const match = await this.matchRepo.findOne({
@@ -162,6 +177,7 @@ export class MatchService {
 			this.matchParticipantRepo.delete({ matchId: id }),
 			this.matchInvitationRepo.delete({ matchId: id }),
 		]);
+		this.socketService.emitToMatch(id, SocketEvents.MATCH_DELETED);
 	}
 
 	@Transactional()
@@ -171,6 +187,7 @@ export class MatchService {
 			isNotStarted: true,
 		});
 		await this.populateParticipants(match);
+		this.validateParticipantLimit(match);
 
 		if (match.participants.some((p) => p.participantId === dto.accountId)) {
 			throw new AccountAlreadyAParticipantError();
@@ -237,6 +254,7 @@ export class MatchService {
 			throw new MatchNotFoundError();
 		}
 		await this.populateParticipants(match);
+		this.validateParticipantLimit(match);
 
 		if (
 			match.participants.some((p) => p.participantId === invitation.accountId)
@@ -285,6 +303,63 @@ export class MatchService {
 			invitation.matchId,
 			SocketEvents.INVITATION_DENIED,
 			ProfileResponse.fromEntity(invitation.account),
+		);
+	}
+
+	async removeParticipant(matchId: string, participantId: string) {
+		const match = await this.findOne(matchId, {
+			isHost: true,
+			isNotStarted: true,
+		});
+		const participant = match.participants.find(
+			(p) => p.participantId === participantId,
+		);
+		if (!participant) {
+			throw new ParticipantNotFoundError();
+		}
+		await this.matchParticipantRepo.delete(participant.id);
+		this.socketService.emitToMatch(
+			matchId,
+			SocketEvents.PARTICIPANT_REMOVED,
+			participantId,
+		);
+	}
+
+	async joinAsParticipant(matchId: string) {
+		const profile = this.cls.get("profile");
+		const match = await this.findOne(matchId, { isNotStarted: true });
+		this.validateParticipantLimit(match);
+		const participant = match.participants.find(
+			(p) => p.participantId === profile.id,
+		);
+		if (participant) {
+			throw new AccountAlreadyAParticipantError();
+		}
+		await this.matchParticipantRepo.save({
+			matchId,
+			participantId: profile.id,
+		});
+		this.socketService.emitToMatch(
+			matchId,
+			SocketEvents.PARTICIPANT_JOINED,
+			profile,
+		);
+	}
+
+	async leaveMatch(matchId: string) {
+		const profile = this.cls.get("profile");
+		const match = await this.findOne(matchId, { isNotStarted: true });
+		const participant = match.participants.find(
+			(p) => p.participantId === profile.id,
+		);
+		if (!participant) {
+			throw new ParticipantNotFoundError();
+		}
+		await this.matchParticipantRepo.delete(participant.id);
+		this.socketService.emitToMatch(
+			matchId,
+			SocketEvents.PARITIPANT_LEFT,
+			profile.id,
 		);
 	}
 }

@@ -46,6 +46,22 @@ export class MatchController {
 		return BaseApiResponse.success();
 	}
 
+	@Post("accept-invitation/:invitationId")
+	async acceptInvitation(
+		@Param("invitationId", ParseUUIDPipe) invitationId: string,
+	) {
+		await this.matchService.acceptInvitation(invitationId);
+		return BaseApiResponse.success();
+	}
+
+	@Post("deny-invitation/:invitationId")
+	async denyInvitation(
+		@Param("invitationId", ParseUUIDPipe) invitationId: string,
+	) {
+		await this.matchService.denyInvitation(invitationId);
+		return BaseApiResponse.success();
+	}
+
 	@Put(":id")
 	@SwaggerBaseApiResponse(MatchResponse)
 	@ApiBearerAuth()
@@ -84,6 +100,33 @@ export class MatchController {
 	@ApiBearerAuth()
 	async deleteOne(@Param("id", ParseUUIDPipe) id: string) {
 		await this.matchService.deleteOne(id);
+		return BaseApiResponse.success();
+	}
+
+	@Post(":id/remove-participant/:participantId")
+	@SwaggerBaseApiMessageResponse()
+	@ApiBearerAuth()
+	async removeParticipant(
+		@Param("id", ParseUUIDPipe) id: string,
+		@Param("participantId", ParseUUIDPipe) participantId: string,
+	) {
+		await this.matchService.removeParticipant(id, participantId);
+		return BaseApiResponse.success();
+	}
+
+	@Post(":id/join")
+	@SwaggerBaseApiMessageResponse()
+	@ApiBearerAuth()
+	async joinMatch(@Param("id", ParseUUIDPipe) id: string) {
+		await this.matchService.joinAsParticipant(id);
+		return BaseApiResponse.success();
+	}
+
+	@Post(":id/leave")
+	@SwaggerBaseApiMessageResponse()
+	@ApiBearerAuth()
+	async leaveMatch(@Param("id", ParseUUIDPipe) id: string) {
+		await this.matchService.leaveMatch(id);
 		return BaseApiResponse.success();
 	}
 }

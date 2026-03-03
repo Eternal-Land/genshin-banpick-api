@@ -12,6 +12,7 @@ import { AccountEntity } from "./account.entity";
 import { MatchSessionEntity } from "./match-session.entity";
 import { MatchParticipantEntity } from "./match-participant.entity";
 import { MatchInvitationEntity } from "./match-invitation.entity";
+import { MatchType } from "@utils/enums";
 
 @Entity(TableNames.Match)
 export class MatchEntity {
@@ -27,6 +28,9 @@ export class MatchEntity {
 
 	@Column({ name: ColumnNames.Match.name, default: "New Match" })
 	name: string;
+
+	@Column({ name: ColumnNames.Match.type, default: MatchType.REALTIME })
+	type: MatchType;
 
 	@CreateDateColumn({ name: ColumnNames.Global.createdAt })
 	createdAt: Date;

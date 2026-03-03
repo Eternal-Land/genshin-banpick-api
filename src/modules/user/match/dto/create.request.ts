@@ -1,6 +1,8 @@
 import { ApiProperty } from "@nestjs/swagger";
+import { MatchType } from "@utils/enums";
 import {
 	IsBoolean,
+	IsEnum,
 	IsNumber,
 	IsString,
 	Max,
@@ -25,4 +27,8 @@ export class CreateMatchRequest {
 	@MinLength(1)
 	@MaxLength(255)
 	name: string;
+
+	@ApiProperty({ type: Number, example: MatchType.REALTIME, enum: MatchType })
+	@IsEnum(MatchType)
+	type: MatchType;
 }
