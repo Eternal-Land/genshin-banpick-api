@@ -1,7 +1,8 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { MatchType } from "@utils/enums";
 import {
-	IsBoolean,
+	ArrayMaxSize,
+	ArrayMinSize,
 	IsEnum,
 	IsNumber,
 	IsString,
@@ -12,10 +13,6 @@ import {
 } from "class-validator";
 
 export class CreateMatchRequest {
-	@ApiProperty({ type: Boolean, example: true })
-	@IsBoolean()
-	isParticipant: boolean;
-
 	@ApiProperty({ type: Number, example: 1 })
 	@IsNumber()
 	@Min(1)
@@ -31,4 +28,10 @@ export class CreateMatchRequest {
 	@ApiProperty({ type: Number, example: MatchType.REALTIME, enum: MatchType })
 	@IsEnum(MatchType)
 	type: MatchType;
+
+	@ApiProperty({ type: String, isArray: true })
+	@IsString({ each: true })
+	@ArrayMinSize(2)
+	@ArrayMaxSize(2)
+	participants: string[];
 }

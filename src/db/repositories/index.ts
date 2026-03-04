@@ -11,5 +11,4 @@ export * from "./weapon-cost.repository";
 export * from "./match.repository";
 export * from "./match-session.repository";
 export * from "./match-participant.repository";
-export * from "./match-invitation.repository";
 export * from "./notification.repository";

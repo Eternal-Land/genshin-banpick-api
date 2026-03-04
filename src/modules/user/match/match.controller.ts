@@ -19,7 +19,6 @@ import {
 } from "@utils";
 import {
 	CreateMatchRequest,
-	InviteParticipantRequest,
 	MatchQuery,
 	MatchResponse,
 	UpdateMatchRequest,
@@ -36,30 +35,6 @@ export class MatchController {
 	async createOne(@Body() dto: CreateMatchRequest) {
 		const match = await this.matchService.createOne(dto);
 		return BaseApiResponse.success(MatchResponse.fromEntity(match));
-	}
-
-	@Post("invite")
-	@SwaggerBaseApiMessageResponse()
-	@ApiBearerAuth()
-	async inviteParticipant(@Body() dto: InviteParticipantRequest) {
-		await this.matchService.inviteParticipant(dto);
-		return BaseApiResponse.success();
-	}
-
-	@Post("accept-invitation/:invitationId")
-	async acceptInvitation(
-		@Param("invitationId", ParseUUIDPipe) invitationId: string,
-	) {
-		await this.matchService.acceptInvitation(invitationId);
-		return BaseApiResponse.success();
-	}
-
-	@Post("deny-invitation/:invitationId")
-	async denyInvitation(
-		@Param("invitationId", ParseUUIDPipe) invitationId: string,
-	) {
-		await this.matchService.denyInvitation(invitationId);
-		return BaseApiResponse.success();
 	}
 
 	@Put(":id")
@@ -100,25 +75,6 @@ export class MatchController {
 	@ApiBearerAuth()
 	async deleteOne(@Param("id", ParseUUIDPipe) id: string) {
 		await this.matchService.deleteOne(id);
-		return BaseApiResponse.success();
-	}
-
-	@Post(":id/remove-participant/:participantId")
-	@SwaggerBaseApiMessageResponse()
-	@ApiBearerAuth()
-	async removeParticipant(
-		@Param("id", ParseUUIDPipe) id: string,
-		@Param("participantId", ParseUUIDPipe) participantId: string,
-	) {
-		await this.matchService.removeParticipant(id, participantId);
-		return BaseApiResponse.success();
-	}
-
-	@Post(":id/join")
-	@SwaggerBaseApiMessageResponse()
-	@ApiBearerAuth()
-	async joinMatch(@Param("id", ParseUUIDPipe) id: string) {
-		await this.matchService.joinAsParticipant(id);
 		return BaseApiResponse.success();
 	}
 

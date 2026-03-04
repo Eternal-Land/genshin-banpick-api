@@ -14,7 +14,6 @@ export const TableNames = {
 	Match: "match",
 	MatchParticipant: "match_participant",
 	MatchSession: "match_session",
-	MatchInvitation: "match_invitation",
 };
 
 export const ColumnNames = {
@@ -118,9 +117,6 @@ export const ColumnNames = {
 	MatchParticipant: {
 		id: "match_participant_id",
 		participantId: "participant_id",
-	},
-	MatchInvitation: {
-		id: "match_invitation_id",
 	},
 };
 
