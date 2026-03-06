@@ -6,7 +6,7 @@ import {
 	WebSocketGateway,
 	WsException,
 } from "@nestjs/websockets";
-import { SocketService } from "./socket.service";
+import { SocketMatchService, SocketService } from "./services";
 import { Socket, Server as SocketIOServer } from "socket.io";
 import { UseGuards, UsePipes, ValidationPipe } from "@nestjs/common";
 import { SocketGuard } from "./socket.guard";
@@ -21,7 +21,10 @@ import { SkipAuth } from "@utils";
 export class SocketGateway
 	implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
-	constructor(private readonly socketService: SocketService) {}
+	constructor(
+		private readonly socketService: SocketService,
+		private readonly socketMatchService: SocketMatchService,
+	) {}
 
 	// Init the gateway and set the server instance in the service
 	afterInit(server: SocketIOServer) {
@@ -33,14 +36,17 @@ export class SocketGateway
 		await this.socketService.initializeConnection(client);
 	}
 
-	handleDisconnect(client: Socket) {
+	async handleDisconnect(client: Socket) {
 		console.log("Client disconnected:", client.id);
+		await this.socketMatchService.leaveMatchRoom(
+			client,
+			client.data?.currentMatchId,
+		);
 	}
 
 	@SubscribeMessage(SocketEvents.JOIN_MATCH_ROOM)
 	@SkipAuth()
-	handleJoinMatchRoom(client: Socket, matchId: string) {
-		const roomName = this.socketService.buildMatchRoomName(matchId);
-		client.join(roomName);
+	async handleJoinMatchRoom(client: Socket, matchId: string) {
+		await this.socketMatchService.joinMatchRoom(client, matchId);
 	}
 }

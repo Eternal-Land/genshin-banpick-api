@@ -2,7 +2,7 @@ import { MatchEntity } from "@db/entities";
 import { ProfileResponse } from "@modules/self/dto";
 import { ApiProperty } from "@nestjs/swagger";
 import { Builder } from "builder-pattern";
-import { MatchType } from "@utils/enums";
+import { MatchStatus, MatchType } from "@utils/enums";
 
 export class MatchResponse {
 	@ApiProperty()
@@ -23,6 +23,13 @@ export class MatchResponse {
 	@ApiProperty({ type: Number, example: MatchType.REALTIME, enum: MatchType })
 	type: MatchType;
 
+	@ApiProperty({
+		type: Number,
+		example: MatchStatus.WAITING,
+		enum: MatchStatus,
+	})
+	status: MatchStatus;
+
 	static fromEntity(entity: MatchEntity) {
 		return Builder(MatchResponse)
 			.id(entity.id)
@@ -37,6 +44,7 @@ export class MatchResponse {
 					: [],
 			)
 			.type(entity.type)
+			.status(entity.status)
 			.build();
 	}
 

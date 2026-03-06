@@ -7,7 +7,7 @@ import * as jwt from "jsonwebtoken";
 import { Env, SKIP_AUTH_KEY } from "@utils";
 import { ProfileResponse } from "@modules/self/dto";
 import { Reflector } from "@nestjs/core";
-import { SocketService } from "./socket.service";
+import { SocketService } from "./services";
 
 @Injectable()
 export class SocketGuard implements CanActivate {

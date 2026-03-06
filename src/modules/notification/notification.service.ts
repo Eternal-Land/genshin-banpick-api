@@ -1,5 +1,5 @@
 import { NotificationRepository } from "@db/repositories";
-import { SocketService } from "@modules/socket";
+import { SocketService } from "@modules/socket/services";
 import { Injectable } from "@nestjs/common";
 import { NotificationResponse, NotifyRequest } from "./dto";
 import { SocketEvents } from "@utils/constants";

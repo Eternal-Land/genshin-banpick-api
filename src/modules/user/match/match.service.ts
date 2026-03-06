@@ -1,17 +1,18 @@
-import {
-	MatchParticipantRepository,
-	MatchRepository,
-	MatchSessionRepository,
-} from "@db/repositories";
+import { MatchParticipantRepository, MatchRepository } from "@db/repositories";
 import { Injectable } from "@nestjs/common";
 import { GenshinBanpickCls } from "@utils";
 import { ClsService } from "nestjs-cls";
 import { Transactional } from "typeorm-transactional";
 import { CreateMatchRequest, MatchQuery } from "./dto";
-import { MatchAlreadyStartedError, MatchNotFoundError } from "./errors";
+import {
+	MatchAlreadyStartedError,
+	MatchNotFoundError,
+	MatchParticipantMustBeUniqueError,
+} from "./errors";
 import { MatchEntity } from "@db/entities";
-import { SocketService } from "@modules/socket";
+import { SocketMatchService } from "@modules/socket/services";
 import { SocketEvents } from "@utils/constants";
+import { MatchStatus } from "@utils/enums";
 
 interface FindOneOptions {
 	isHost?: boolean;
@@ -22,14 +23,17 @@ interface FindOneOptions {
 export class MatchService {
 	constructor(
 		private readonly matchRepo: MatchRepository,
-		private readonly matchSessionRepo: MatchSessionRepository,
 		private readonly cls: ClsService<GenshinBanpickCls>,
 		private readonly matchParticipantRepo: MatchParticipantRepository,
-		private readonly socketService: SocketService,
+		private readonly socketMatchService: SocketMatchService,
 	) {}
 
 	@Transactional()
 	async createOne(dto: CreateMatchRequest) {
+		if (dto.participants[0] == dto.participants[1]) {
+			throw new MatchParticipantMustBeUniqueError();
+		}
+
 		const hostId = this.cls.get("profile.id");
 
 		const match = await this.matchRepo.save({
@@ -110,14 +114,8 @@ export class MatchService {
 		if (!match) {
 			throw new MatchNotFoundError();
 		}
-		if (options.isNotStarted) {
-			const sessionCount = await this.matchSessionRepo.count({
-				where: { matchId: id },
-			});
-
-			if (sessionCount > 0) {
-				throw new MatchAlreadyStartedError();
-			}
+		if (options.isNotStarted && match.status != MatchStatus.WAITING) {
+			throw new MatchAlreadyStartedError();
 		}
 
 		return match;
@@ -130,6 +128,6 @@ export class MatchService {
 			this.matchRepo.delete(id),
 			this.matchParticipantRepo.delete({ matchId: id }),
 		]);
-		this.socketService.emitToMatch(id, SocketEvents.MATCH_DELETED);
+		this.socketMatchService.emitToMatch(id, SocketEvents.MATCH_DELETED);
 	}
 }

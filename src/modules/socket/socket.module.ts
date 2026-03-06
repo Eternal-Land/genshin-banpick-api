@@ -1,10 +1,12 @@
 import { Global, Module } from "@nestjs/common";
-import { SocketService } from "./socket.service";
+import { SocketMatchService, SocketService } from "./services";
 import { SocketGateway } from "./socket.gateway";
+
+const services = [SocketService, SocketMatchService];
 
 @Global()
 @Module({
-	providers: [SocketService, SocketGateway],
-	exports: [SocketService],
+	providers: [...services, SocketGateway],
+	exports: [...services],
 })
 export class SocketModule {}

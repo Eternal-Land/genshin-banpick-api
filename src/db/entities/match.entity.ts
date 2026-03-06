@@ -11,7 +11,7 @@ import {
 import { AccountEntity } from "./account.entity";
 import { MatchSessionEntity } from "./match-session.entity";
 import { MatchParticipantEntity } from "./match-participant.entity";
-import { MatchType } from "@utils/enums";
+import { MatchStatus, MatchType } from "@utils/enums";
 
 @Entity(TableNames.Match)
 export class MatchEntity {
@@ -39,4 +39,7 @@ export class MatchEntity {
 
 	@OneToMany(() => MatchParticipantEntity, (participant) => participant.match)
 	participants: MatchParticipantEntity[];
+
+	@Column({ name: ColumnNames.Match.status, default: MatchStatus.WAITING })
+	status: MatchStatus;
 }
