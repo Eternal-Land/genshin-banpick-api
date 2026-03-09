@@ -1,4 +1,4 @@
-import { MatchParticipantRepository, MatchRepository } from "@db/repositories";
+import { MatchRepository, MatchStateRepository } from "@db/repositories";
 import { Injectable } from "@nestjs/common";
 import { GenshinBanpickCls } from "@utils";
 import { ClsService } from "nestjs-cls";
@@ -9,7 +9,6 @@ import {
 	MatchNotFoundError,
 	MatchParticipantMustBeUniqueError,
 } from "./errors";
-import { MatchEntity } from "@db/entities";
 import { SocketMatchService } from "@modules/socket/services";
 import { SocketEvents } from "@utils/constants";
 import { MatchStatus } from "@utils/enums";
@@ -24,13 +23,13 @@ export class MatchService {
 	constructor(
 		private readonly matchRepo: MatchRepository,
 		private readonly cls: ClsService<GenshinBanpickCls>,
-		private readonly matchParticipantRepo: MatchParticipantRepository,
 		private readonly socketMatchService: SocketMatchService,
+		private readonly matchStateRepo: MatchStateRepository,
 	) {}
 
 	@Transactional()
 	async createOne(dto: CreateMatchRequest) {
-		if (dto.participants[0] == dto.participants[1]) {
+		if (dto.redPlayerId == dto.bluePlayerId) {
 			throw new MatchParticipantMustBeUniqueError();
 		}
 
@@ -40,16 +39,27 @@ export class MatchService {
 			hostId,
 			sessionCount: dto.sessionCount,
 			type: dto.type,
+			bluePlayerId: dto.bluePlayerId,
+			redPlayerId: dto.redPlayerId,
 		});
 
-		await this.matchParticipantRepo.save(
-			dto.participants.map((participantId) => ({
-				participantId,
-				matchId: match.id,
-			})),
-		);
+		await this.resetMatchState(match.id);
 
 		return match;
+	}
+
+	private async resetMatchState(matchId: string) {
+		const existed = await this.matchStateRepo.findOne({
+			where: { matchId },
+		});
+
+		if (existed) {
+			await this.matchStateRepo.delete({ matchId });
+		}
+
+		await this.matchStateRepo.save({
+			matchId,
+		});
 	}
 
 	async findMany(query: MatchQuery) {
@@ -59,9 +69,10 @@ export class MatchService {
 
 		if (query.accountId) {
 			matchQb
-				.leftJoin("match.participants", "participants")
+				.leftJoin("match.redPlayer", "redPlayer")
+				.leftJoin("match.bluePlayer", "bluePlayer")
 				.andWhere(
-					"match.hostId = :accountId OR participants.participantId = :accountId",
+					"match.hostId = :accountId OR redPlayer.id = :accountId OR bluePlayer.id = :accountId",
 					{
 						accountId: query.accountId,
 					},
@@ -77,21 +88,7 @@ export class MatchService {
 			matchQb.getCount(),
 		]);
 
-		for (const item of items) {
-			await this.populateParticipants(item);
-		}
-
 		return { items, total };
-	}
-
-	private async populateParticipants(match: MatchEntity) {
-		const matchParticipants = await this.matchParticipantRepo.find({
-			where: { matchId: match.id },
-			relations: {
-				participant: true,
-			},
-		});
-		match.participants = matchParticipants;
 	}
 
 	async findOne(id: string, options: FindOneOptions = {}) {
@@ -100,9 +97,8 @@ export class MatchService {
 			where: options.isHost ? { id, hostId } : { id },
 			relations: {
 				host: true,
-				participants: {
-					participant: true,
-				},
+				redPlayer: true,
+				bluePlayer: true,
 			},
 		});
 		if (!match) {
@@ -120,7 +116,7 @@ export class MatchService {
 		await this.findOne(id, { isHost: true, isNotStarted: true });
 		await Promise.all([
 			this.matchRepo.delete(id),
-			this.matchParticipantRepo.delete({ matchId: id }),
+			this.matchStateRepo.delete({ matchId: id }),
 		]);
 		this.socketMatchService.emitToMatch(id, SocketEvents.MATCH_DELETED);
 	}

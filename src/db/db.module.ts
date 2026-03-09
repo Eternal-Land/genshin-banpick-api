@@ -15,8 +15,8 @@ import {
 	AccountCharacterRepository,
 	MatchSessionRepository,
 	MatchRepository,
-	MatchParticipantRepository,
 	NotificationRepository,
+	MatchStateRepository,
 } from "./repositories";
 
 const repositories = [
@@ -32,8 +32,8 @@ const repositories = [
 	WeaponCostRepository,
 	MatchRepository,
 	MatchSessionRepository,
-	MatchParticipantRepository,
 	NotificationRepository,
+	MatchStateRepository,
 ];
 
 @Global()

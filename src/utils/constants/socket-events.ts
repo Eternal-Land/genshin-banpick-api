@@ -4,4 +4,5 @@ export const SocketEvents = {
 	MATCH_DELETED: "match_deleted",
 	PARTICIPANT_JOINED: "participant_joined",
 	PARTICIPANT_LEFT: "participant_left",
+	ERROR: "error",
 } as const;

@@ -17,9 +17,6 @@ export class MatchResponse {
 	@ApiProperty()
 	createdAt: Date;
 
-	@ApiProperty({ type: ProfileResponse, isArray: true })
-	participants: ProfileResponse[];
-
 	@ApiProperty({ type: Number, example: MatchType.REALTIME, enum: MatchType })
 	type: MatchType;
 
@@ -30,18 +27,25 @@ export class MatchResponse {
 	})
 	status: MatchStatus;
 
+	@ApiProperty({ type: ProfileResponse })
+	redPlayer: ProfileResponse;
+
+	@ApiProperty({ type: ProfileResponse })
+	bluePlayer: ProfileResponse;
+
 	static fromEntity(entity: MatchEntity) {
 		return Builder(MatchResponse)
 			.id(entity.id)
 			.host(entity.host ? ProfileResponse.fromEntity(entity.host) : null)
 			.sessionCount(entity.sessionCount)
 			.createdAt(entity.createdAt)
-			.participants(
-				entity.participants
-					? entity.participants.map((p) =>
-							ProfileResponse.fromEntity(p.participant),
-						)
-					: [],
+			.redPlayer(
+				entity.redPlayer ? ProfileResponse.fromEntity(entity.redPlayer) : null,
+			)
+			.bluePlayer(
+				entity.bluePlayer
+					? ProfileResponse.fromEntity(entity.bluePlayer)
+					: null,
 			)
 			.type(entity.type)
 			.status(entity.status)

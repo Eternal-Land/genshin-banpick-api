@@ -12,8 +12,8 @@ export const TableNames = {
 	WeaponCost: "weapon_cost",
 	Notification: "notification",
 	Match: "match",
-	MatchParticipant: "match_participant",
 	MatchSession: "match_session",
+	MatchState: "match_state",
 };
 
 export const ColumnNames = {
@@ -108,15 +108,19 @@ export const ColumnNames = {
 		sessionCount: "session_count",
 		type: "match_type",
 		status: "match_status",
+		redPlayerId: "red_player_id",
+		bluePlayerId: "blue_player_id",
 	},
 	MatchSession: {
 		id: "match_session_id",
 		redParticipantId: "red_participant_id",
 		blueParticipantId: "blue_participant_id",
 	},
-	MatchParticipant: {
-		id: "match_participant_id",
-		participantId: "participant_id",
+	MatchState: {
+		id: "match_state_id",
+		host_joined: "host_joined",
+		red_player_joined: "red_player_joined",
+		blue_player_joined: "blue_player_joined",
 	},
 };
 

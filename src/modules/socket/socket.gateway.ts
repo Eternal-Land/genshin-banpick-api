@@ -8,12 +8,19 @@ import {
 } from "@nestjs/websockets";
 import { SocketMatchService, SocketService } from "./services";
 import { Socket, Server as SocketIOServer } from "socket.io";
-import { UseGuards, UsePipes, ValidationPipe } from "@nestjs/common";
+import {
+	UseFilters,
+	UseGuards,
+	UsePipes,
+	ValidationPipe,
+} from "@nestjs/common";
 import { SocketGuard } from "./socket.guard";
 import { SocketEvents } from "@utils/constants";
 import { SkipAuth } from "@utils";
+import { SocketExceptionFilter } from "./socket.exception-filter";
 
 @WebSocketGateway()
+@UseFilters(SocketExceptionFilter)
 @UsePipes(
 	new ValidationPipe({ exceptionFactory: (errors) => new WsException(errors) }),
 )
@@ -33,15 +40,32 @@ export class SocketGateway
 
 	async handleConnection(client: Socket) {
 		console.log("Client connected:", client.id);
-		await this.socketService.initializeConnection(client);
+		try {
+			await this.socketService.initializeConnection(client);
+		} catch (error) {
+			const errorMsg =
+				error instanceof WsException
+					? String(error.getError())
+					: error instanceof Error
+						? error.message
+						: "An unexpected error occurred";
+			client.emit(SocketEvents.ERROR, errorMsg);
+		}
 	}
 
 	async handleDisconnect(client: Socket) {
 		console.log("Client disconnected:", client.id);
-		await this.socketMatchService.leaveMatchRoom(
-			client,
-			client.data?.currentMatchId,
-		);
+		try {
+			await this.socketMatchService.leaveMatchRoom(client);
+		} catch (error) {
+			const errorMsg =
+				error instanceof WsException
+					? String(error.getError())
+					: error instanceof Error
+						? error.message
+						: "An unexpected error occurred";
+			client.emit(SocketEvents.ERROR, errorMsg);
+		}
 	}
 
 	@SubscribeMessage(SocketEvents.JOIN_MATCH_ROOM)

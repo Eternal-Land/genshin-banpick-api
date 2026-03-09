@@ -2,9 +2,8 @@ import { Injectable } from "@nestjs/common";
 import { SocketService } from "./socket.service";
 import { Socket } from "socket.io";
 import { SocketEventType } from "@utils/types";
-import { MatchRepository } from "@db/repositories";
+import { MatchRepository, MatchStateRepository } from "@db/repositories";
 import { SocketEvents } from "@utils/constants";
-import { ProfileResponse } from "@modules/self/dto";
 import { WsException } from "@nestjs/websockets";
 
 @Injectable()
@@ -12,6 +11,7 @@ export class SocketMatchService {
 	constructor(
 		private readonly socketService: SocketService,
 		private readonly matchRepository: MatchRepository,
+		private readonly matchStateRepository: MatchStateRepository,
 	) {}
 
 	buildMatchRoomName(matchId: string) {
@@ -26,7 +26,6 @@ export class SocketMatchService {
 	private async checkMatchExists(matchId: string) {
 		const match = await this.matchRepository.findOne({
 			where: { id: matchId },
-			relations: { participants: { participant: true } },
 		});
 		if (!match) {
 			throw new WsException("Match not found");
@@ -44,15 +43,12 @@ export class SocketMatchService {
 		const match = await this.checkMatchExists(matchId);
 		if (client.data?.profile) {
 			const accountId = client.data.profile.id;
-			const matchParticipant = match.participants.find(
-				(mp) => mp.participantId == accountId,
-			);
-			if (matchParticipant) {
+			if (match.bluePlayerId == accountId || match.redPlayerId == accountId) {
 				client.data.currentMatchId = matchId;
 				this.emitToMatch(
 					matchId,
 					SocketEvents.PARTICIPANT_JOINED,
-					ProfileResponse.fromEntity(matchParticipant.participant),
+					client.data.profile,
 				);
 			}
 		}
@@ -60,22 +56,23 @@ export class SocketMatchService {
 		client.join(matchRoom);
 	}
 
-	async leaveMatchRoom(client: Socket, matchId: string) {
-		const match = await this.checkMatchExists(matchId);
-		if (client.data?.profile) {
+	async leaveMatchRoom(client: Socket) {
+		if (!client.data?.currentMatchId) {
+			return;
+		}
+		const matchId = client.data.currentMatchId;
+		const match = await this.matchRepository.findOne({
+			where: { id: matchId },
+		});
+		if (match && client.data?.profile) {
 			const accountId = client.data.profile.id;
-			const matchParticipant = match.participants.find(
-				(mp) => mp.participantId == accountId,
-			);
-			if (matchParticipant) {
+			if (match.bluePlayerId == accountId || match.redPlayerId == accountId) {
 				this.emitToMatch(
 					matchId,
 					SocketEvents.PARTICIPANT_LEFT,
-					ProfileResponse.fromEntity(matchParticipant.participant),
+					client.data.profile,
 				);
 			}
 		}
-		const matchRoom = this.buildMatchRoomName(matchId);
-		client.leave(matchRoom);
 	}
 }

@@ -10,7 +10,6 @@ import {
 } from "typeorm";
 import { AccountEntity } from "./account.entity";
 import { MatchSessionEntity } from "./match-session.entity";
-import { MatchParticipantEntity } from "./match-participant.entity";
 import { MatchStatus, MatchType } from "@utils/enums";
 
 @Entity(TableNames.Match)
@@ -37,9 +36,20 @@ export class MatchEntity {
 	@OneToMany(() => MatchSessionEntity, (session) => session.match)
 	sessions: MatchSessionEntity[];
 
-	@OneToMany(() => MatchParticipantEntity, (participant) => participant.match)
-	participants: MatchParticipantEntity[];
-
 	@Column({ name: ColumnNames.Match.status, default: MatchStatus.WAITING })
 	status: MatchStatus;
+
+	@Column({ name: ColumnNames.Match.redPlayerId, nullable: true })
+	redPlayerId: string;
+
+	@ManyToOne(() => AccountEntity, { createForeignKeyConstraints: false })
+	@JoinColumn({ name: ColumnNames.Match.redPlayerId })
+	redPlayer: AccountEntity;
+
+	@Column({ name: ColumnNames.Match.bluePlayerId, nullable: true })
+	bluePlayerId: string;
+
+	@ManyToOne(() => AccountEntity, { createForeignKeyConstraints: false })
+	@JoinColumn({ name: ColumnNames.Match.bluePlayerId })
+	bluePlayer: AccountEntity;
 }

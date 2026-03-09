@@ -10,5 +10,5 @@ export * from "./cost-milestone.entity";
 export * from "./weapon-cost.entity";
 export * from "./match.entity";
 export * from "./match-session.entity";
-export * from "./match-participant.entity";
 export * from "./notification.entity";
+export * from "./match-state.entity";
