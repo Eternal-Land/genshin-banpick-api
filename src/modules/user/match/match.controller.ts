@@ -16,7 +16,12 @@ import {
 	SwaggerBaseApiMessageResponse,
 	SwaggerBaseApiResponse,
 } from "@utils";
-import { CreateMatchRequest, MatchQuery, MatchResponse } from "./dto";
+import {
+	CreateMatchRequest,
+	MatchQuery,
+	MatchResponse,
+	MatchStateResponse,
+} from "./dto";
 import { MatchService } from "./match.service";
 
 @Controller("/user/match")
@@ -43,6 +48,14 @@ export class MatchController {
 			MatchResponse.fromEntities(items),
 			PaginationDto.from(query.page, query.take, total),
 		);
+	}
+
+	@Get(":id/state")
+	@SwaggerBaseApiResponse(MatchStateResponse)
+	@SkipAuth()
+	async getMatchState(@Param("id", ParseUUIDPipe) id: string) {
+		const matchState = await this.matchService.getMatchState(id);
+		return BaseApiResponse.success(MatchStateResponse.fromEntity(matchState));
 	}
 
 	@Get(":id")

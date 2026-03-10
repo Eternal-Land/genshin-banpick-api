@@ -1,8 +1,8 @@
 export const SocketEvents = {
 	NOTIFICATION: "notification",
 	JOIN_MATCH_ROOM: "join_match_room",
+	LEAVE_MATCH_ROOM: "leave_match_room",
 	MATCH_DELETED: "match_deleted",
-	PARTICIPANT_JOINED: "participant_joined",
-	PARTICIPANT_LEFT: "participant_left",
+	UPDATE_MATCH_STATE: "update_match_state",
 	ERROR: "error",
 } as const;

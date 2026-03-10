@@ -72,5 +72,13 @@ export class SocketGateway
 	@SkipAuth()
 	async handleJoinMatchRoom(client: Socket, matchId: string) {
 		await this.socketMatchService.joinMatchRoom(client, matchId);
+		return { ok: true };
+	}
+
+	@SubscribeMessage(SocketEvents.LEAVE_MATCH_ROOM)
+	@SkipAuth()
+	async handleLeaveMatchRoom(client: Socket, matchId: string) {
+		await this.socketMatchService.leaveMatchRoom(client, matchId);
+		return { ok: true };
 	}
 }

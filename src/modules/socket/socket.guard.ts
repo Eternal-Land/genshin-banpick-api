@@ -1,23 +1,18 @@
 import { CanActivate, ExecutionContext, Injectable } from "@nestjs/common";
 import { Socket } from "socket.io";
-import { parseCookie } from "cookie";
-import { AccountRepository } from "@db/repositories";
 import { WsException } from "@nestjs/websockets";
-import * as jwt from "jsonwebtoken";
-import { Env, SKIP_AUTH_KEY } from "@utils";
-import { ProfileResponse } from "@modules/self/dto";
+import { SKIP_AUTH_KEY } from "@utils";
 import { Reflector } from "@nestjs/core";
 import { SocketService } from "./services";
 
 @Injectable()
 export class SocketGuard implements CanActivate {
 	constructor(
-		private readonly accountRepo: AccountRepository,
 		private readonly reflector: Reflector,
 		private readonly socketService: SocketService,
 	) {}
 
-	async canActivate(context: ExecutionContext) {
+	async canActivate(context: ExecutionContext): Promise<boolean> {
 		const client = context.switchToWs().getClient<Socket>();
 
 		const skipAuth = this.reflector.getAllAndOverride<boolean>(SKIP_AUTH_KEY, [
@@ -29,45 +24,12 @@ export class SocketGuard implements CanActivate {
 			return true;
 		}
 
-		const token = this.getTokenFromClient(client);
-
-		if (!token) {
-			throw new WsException("Unauthorized");
+		if (this.hasFreshProfile(client)) {
+			return true;
 		}
 
 		try {
-			const payload = jwt.verify(token, Env.JWT_AT_SECRET) as jwt.JwtPayload;
-			const accountId = payload?.sub as string | undefined;
-			if (!accountId) {
-				throw new WsException("Unauthorized");
-			}
-
-			const account = await this.accountRepo.findOne({
-				where: { id: accountId },
-				relations: [
-					"staffRole",
-					"staffRole.permissions",
-					"staffRole.permissions.permission",
-				],
-			});
-			if (!account) {
-				throw new WsException("Unauthorized");
-			}
-
-			if (!account.isActive) {
-				throw new WsException("Account is inactive");
-			}
-
-			client.data = {
-				...client.data,
-				profile: ProfileResponse.fromEntity(account),
-			};
-
-			const userRoom = this.socketService.buildUserRoomName(accountId);
-			if (!client.rooms.has(userRoom)) {
-				client.join(userRoom);
-			}
-
+			await this.socketService.syncAuthFromToken(client, true);
 			return true;
 		} catch (error) {
 			if (error instanceof WsException) {
@@ -77,8 +39,13 @@ export class SocketGuard implements CanActivate {
 		}
 	}
 
-	private getTokenFromClient(client: Socket): string | null {
-		const cookies = parseCookie(client.handshake.headers.cookie || "");
-		return cookies["accessToken"] || null;
+	private hasFreshProfile(client: Socket): boolean {
+		const profile = client.data?.profile;
+		const profileExpireAt = client.data?.profileExpireAt;
+		if (!profile || typeof profileExpireAt !== "number") {
+			return false;
+		}
+
+		return profileExpireAt > Date.now();
 	}
 }

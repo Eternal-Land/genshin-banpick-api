@@ -5,6 +5,7 @@ import { SocketEventType } from "@utils/types";
 import { MatchRepository, MatchStateRepository } from "@db/repositories";
 import { SocketEvents } from "@utils/constants";
 import { WsException } from "@nestjs/websockets";
+import { MatchStateResponse } from "@modules/user/match/dto";
 
 @Injectable()
 export class SocketMatchService {
@@ -34,45 +35,86 @@ export class SocketMatchService {
 	}
 
 	async joinMatchRoom(client: Socket, matchId: string) {
-		if (client.data.currentMatchId && client.data.currentMatchId != matchId) {
+		if (client.data?.currentMatchId && client.data?.currentMatchId != matchId) {
 			throw new WsException(
 				"Already in a match room. Please leave the current match room before joining another.",
 			);
 		}
 
 		const match = await this.checkMatchExists(matchId);
-		if (client.data?.profile) {
+		const matchState = await this.matchStateRepository.findOneOrCreate(matchId);
+		if (matchState && client.data?.profile) {
 			const accountId = client.data.profile.id;
-			if (match.bluePlayerId == accountId || match.redPlayerId == accountId) {
-				client.data.currentMatchId = matchId;
+			let isStateUpdated = false;
+
+			if (match.hostId == accountId) {
+				matchState.hostJoined = true;
+				isStateUpdated = true;
+			}
+
+			if (match.redPlayerId == accountId) {
+				matchState.redPlayerJoined = true;
+				isStateUpdated = true;
+			}
+
+			if (match.bluePlayerId == accountId) {
+				matchState.bluePlayerJoined = true;
+				isStateUpdated = true;
+			}
+
+			if (isStateUpdated) {
 				this.emitToMatch(
-					matchId,
-					SocketEvents.PARTICIPANT_JOINED,
-					client.data.profile,
+					match.id,
+					SocketEvents.UPDATE_MATCH_STATE,
+					MatchStateResponse.fromEntity(matchState),
 				);
+				await this.matchStateRepository.save(matchState);
 			}
 		}
 		const matchRoom = this.buildMatchRoomName(matchId);
-		client.join(matchRoom);
+		if (!client.rooms.has(matchRoom)) {
+			client.join(matchRoom);
+		}
+		client.data = { ...client.data, currentMatchId: matchId };
 	}
 
-	async leaveMatchRoom(client: Socket) {
-		if (!client.data?.currentMatchId) {
+	async leaveMatchRoom(client: Socket, matchId?: string) {
+		matchId = matchId || client.data?.currentMatchId;
+		if (!matchId) {
 			return;
 		}
-		const matchId = client.data.currentMatchId;
 		const match = await this.matchRepository.findOne({
 			where: { id: matchId },
 		});
+		const matchState = await this.matchStateRepository.findOneOrCreate(matchId);
 		if (match && client.data?.profile) {
 			const accountId = client.data.profile.id;
-			if (match.bluePlayerId == accountId || match.redPlayerId == accountId) {
+			let isStateUpdated = false;
+
+			if (match.hostId == accountId) {
+				matchState.hostJoined = false;
+				isStateUpdated = true;
+			}
+
+			if (match.redPlayerId == accountId) {
+				matchState.redPlayerJoined = false;
+				isStateUpdated = true;
+			}
+
+			if (match.bluePlayerId == accountId) {
+				matchState.bluePlayerJoined = false;
+				isStateUpdated = true;
+			}
+
+			if (isStateUpdated) {
 				this.emitToMatch(
-					matchId,
-					SocketEvents.PARTICIPANT_LEFT,
-					client.data.profile,
+					match.id,
+					SocketEvents.UPDATE_MATCH_STATE,
+					MatchStateResponse.fromEntity(matchState),
 				);
+				await this.matchStateRepository.save(matchState);
 			}
 		}
+		delete client.data.currentMatchId;
 	}
 }

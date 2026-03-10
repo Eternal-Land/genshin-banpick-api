@@ -5,6 +5,7 @@ import { ClsService } from "nestjs-cls";
 import { Transactional } from "typeorm-transactional";
 import { CreateMatchRequest, MatchQuery } from "./dto";
 import {
+	MatchAlreadyCompletedError,
 	MatchAlreadyStartedError,
 	MatchNotFoundError,
 	MatchParticipantMustBeUniqueError,
@@ -119,5 +120,14 @@ export class MatchService {
 			this.matchStateRepo.delete({ matchId: id }),
 		]);
 		this.socketMatchService.emitToMatch(id, SocketEvents.MATCH_DELETED);
+	}
+
+	async getMatchState(matchId: string) {
+		// check exists
+		const match = await this.findOne(matchId);
+		if ([MatchStatus.COMPLETED, MatchStatus.CANCELED].includes(match.status)) {
+			throw new MatchAlreadyCompletedError();
+		}
+		return await this.matchStateRepo.findOneOrCreate(matchId);
 	}
 }
