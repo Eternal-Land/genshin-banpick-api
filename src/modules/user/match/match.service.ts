@@ -130,4 +130,10 @@ export class MatchService {
 		}
 		return await this.matchStateRepo.findOneOrCreate(matchId);
 	}
+
+	async startMatch(matchId: string) {
+		await this.findOne(matchId, { isHost: true, isNotStarted: true });
+		await this.matchRepo.update(matchId, { status: MatchStatus.LIVE });
+		this.socketMatchService.emitToMatch(matchId, SocketEvents.MATCH_STARTED);
+	}
 }

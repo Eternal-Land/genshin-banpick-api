@@ -6,6 +6,7 @@ import {
 	Param,
 	ParseUUIDPipe,
 	Post,
+	Put,
 	Query,
 } from "@nestjs/common";
 import { ApiBearerAuth } from "@nestjs/swagger";
@@ -71,6 +72,14 @@ export class MatchController {
 	@ApiBearerAuth()
 	async deleteOne(@Param("id", ParseUUIDPipe) id: string) {
 		await this.matchService.deleteOne(id);
+		return BaseApiResponse.success();
+	}
+
+	@Put(":id/start")
+	@SwaggerBaseApiMessageResponse()
+	@ApiBearerAuth()
+	async startMatch(@Param("id", ParseUUIDPipe) id: string) {
+		await this.matchService.startMatch(id);
 		return BaseApiResponse.success();
 	}
 }
