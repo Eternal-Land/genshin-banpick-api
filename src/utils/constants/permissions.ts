@@ -32,4 +32,13 @@ export const PERMISSIONS_MAP = {
 	"admin.cost-milestone.create": "Create Cost Milestone",
 	"admin.cost-milestone.update": "Update Cost Milestone",
 	"admin.cost-milestone.delete": "Delete Cost Milestone",
+
+	"admin.character-cost.list": "View Character Costs List",
+	"admin.character-cost.sync": "Sync Character Costs",
+	"admin.character-cost.update": "Update Character Cost",
+
+	"admin.weapon-cost.list": "View Weapon Costs List",
+	"admin.weapon-cost.update": "Update Weapon Cost",
+	"admin.weapon-cost.sync": "Sync Weapon Cost",
+	"admin.weapon-cost.clear": "Clear All Weapon Costs",
 } as const;

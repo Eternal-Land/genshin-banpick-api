@@ -4,6 +4,7 @@ config();
 
 export const Env = {
 	LISTEN_PORT: Number(process.env.LISTEN_PORT || "0"),
+	CORS_ORIGINS: process.env.CORS_ORIGINS || "",
 	DB_HOST: process.env.DB_HOST || "",
 	DB_PORT: Number(process.env.DB_PORT || "0"),
 	DB_NAME: process.env.DB_NAME || "",
@@ -13,14 +14,15 @@ export const Env = {
 	ENABLE_SWAGGER: process.env.ENABLE_SWAGGER === "true",
 	JWT_AT_SECRET: process.env.JWT_AT_SECRET || "",
 	JWT_AT_EXPIRATION: Number(process.env.JWT_AT_EXPIRATION || "0"),
+	COOKIE_DOMAIN: process.env.COOKIE_DOMAIN || "",
+	COOKIE_SECURE: process.env.COOKIE_SECURE === "true",
 	ADMIN_EMAIL: process.env.ADMIN_EMAIL || "",
 	ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || "",
 	CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || "",
 	CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || "",
 	CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || "",
-	HOYOLAB_BASE_URL:
-		process.env.HOYOLAB_BASE_URL || "https://sg-public-api.hoyolab.com/event",
-	HOYOLAB_LANGUAGE: process.env.HOYOLAB_LANGUAGE || "en-us",
+	HOYOLAB_BASE_URL: process.env.HOYOLAB_BASE_URL || "",
+	HOYOLAB_LANGUAGE: process.env.HOYOLAB_LANGUAGE || "",
 } as const;
 
 console.log(Env);

@@ -18,6 +18,7 @@ export class MyExceptionFilter implements ExceptionFilter {
 	 * @param host The arguments host providing access to the request/response objects.
 	 */
 	catch(exception: any, host: ArgumentsHost) {
+		console.error(exception);
 		const res = host.switchToHttp().getResponse<Response>();
 
 		if (exception instanceof ApiError) {

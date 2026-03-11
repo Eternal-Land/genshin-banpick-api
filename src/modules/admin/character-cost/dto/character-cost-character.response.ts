@@ -19,7 +19,7 @@ export class CharacterCostCharacterResponse {
 	@ApiProperty()
 	rarity: number;
 
-	@ApiProperty({ type: [CharacterCostResponse], required: false })
+	@ApiProperty({ type: CharacterCostResponse, isArray: true, required: false })
 	characterCosts?: CharacterCostResponse[];
 
 	static fromEntity(entity: CharacterEntity) {

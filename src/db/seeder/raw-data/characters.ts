@@ -211,7 +211,7 @@ export const rawChars: DeepPartial<CharacterEntity>[] = [
 		weaponType: WeaponType.BOW,
 	},
 	{
-		key: "hutao",
+		key: "hu_tao",
 		name: "Hu Tao",
 		iconUrl:
 			"https://res.cloudinary.com/dphtvhtvf/image/upload/v1768877209/hu-tao_fnofog.png",

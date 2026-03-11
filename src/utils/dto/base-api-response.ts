@@ -70,21 +70,43 @@ interface SwaggerBaseApiResponseOptions {
 	withCursor?: boolean;
 }
 
+const swaggerBaseApiResponseModelCache = new Map<string, Type<any>>();
+
+function getSwaggerBaseApiResponseModel(
+	opts?: SwaggerBaseApiResponseOptions,
+): Type<any> {
+	const withPagination = !!opts?.withPagination;
+	const withCursor = !!opts?.withCursor;
+
+	const modelName = `BaseApiResponse_${withPagination ? "WithPagination" : "NoPagination"}_${withCursor ? "WithCursor" : "NoCursor"}`;
+	const cachedModel = swaggerBaseApiResponseModelCache.get(modelName);
+
+	if (cachedModel) {
+		return cachedModel;
+	}
+
+	const omitFields: (keyof BaseApiResponse)[] = [];
+
+	if (!withPagination) {
+		omitFields.push("pagination");
+	}
+
+	if (!withCursor) {
+		omitFields.push("next");
+	}
+
+	const swaggerModel = OmitType(BaseApiResponse, omitFields);
+	Object.defineProperty(swaggerModel, "name", { value: modelName });
+
+	swaggerBaseApiResponseModelCache.set(modelName, swaggerModel);
+	return swaggerModel;
+}
+
 export function SwaggerBaseApiResponse<T extends Type<any>>(
 	t: T,
 	opts?: SwaggerBaseApiResponseOptions,
 ): MethodDecorator {
-	const omitFields: (keyof BaseApiResponse)[] = ["pagination", "next"];
-
-	if (!opts?.withPagination) {
-		omitFields.splice(omitFields.indexOf("pagination"), 1);
-	}
-
-	if (!opts?.withCursor) {
-		omitFields.splice(omitFields.indexOf("next"), 1);
-	}
-
-	const swaggerModel = OmitType(BaseApiResponse, omitFields);
+	const swaggerModel = getSwaggerBaseApiResponseModel(opts);
 
 	const dataSchema = opts?.isArray
 		? {

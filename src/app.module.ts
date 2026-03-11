@@ -11,9 +11,16 @@ import { FilesModule } from "@modules/files";
 import { SelfModule } from "@modules/self";
 import { HoyolabModule } from "@modules/hoyolab";
 import { WeaponModule } from "@modules/admin/weapon";
-import { UserModule } from "@modules/admin/users";
+import { UserModule as AdminUserModule } from "@modules/admin/users";
 import { CostMilestoneModule } from "@modules/admin/cost-milestone";
 import { CharacterCostModule } from "@modules/admin/character-cost";
+import { AccountCharacterModule } from "@modules/account-character";
+import { UserCharacterModule } from "@modules/user/character";
+import { MatchModule } from "@modules/user/match";
+import { WeaponCostModule } from "@modules/admin/weapon-cost";
+import { UserModule } from "@modules/user/user";
+import { SocketModule } from "@modules/socket";
+import { NotificationModule } from "@modules/notification";
 
 @Module({
 	imports: [
@@ -33,9 +40,16 @@ import { CharacterCostModule } from "@modules/admin/character-cost";
 		SelfModule,
 		HoyolabModule,
 		WeaponModule,
-		UserModule,
+		AdminUserModule,
 		CostMilestoneModule,
 		CharacterCostModule,
+		AccountCharacterModule,
+		UserCharacterModule,
+		MatchModule,
+		WeaponCostModule,
+		UserModule,
+		SocketModule,
+		NotificationModule,
 	],
 	controllers: [],
 	providers: [

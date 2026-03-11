@@ -1,6 +1,7 @@
 export const TableNames = {
 	Sample: "sample",
 	Account: "account",
+	AccountCharacter: "account_character",
 	StaffRole: "staff_role",
 	Permission: "permission",
 	StaffRolePermission: "staff_role_permission",
@@ -8,6 +9,11 @@ export const TableNames = {
 	Weapon: "weapon",
 	CharacterCost: "character_cost",
 	CostMilestone: "cost_milestone",
+	WeaponCost: "weapon_cost",
+	Notification: "notification",
+	Match: "match",
+	MatchSession: "match_session",
+	MatchState: "match_state",
 };
 
 export const ColumnNames = {
@@ -32,6 +38,15 @@ export const ColumnNames = {
 		lastLoginAt: "last_login_at",
 		role: "role",
 		avatar: "avatar",
+	},
+	AccountCharacter: {
+		id: "account_character_id",
+		accountId: "account_id",
+		characterId: "character_id",
+		activatedConstellation: "activated_constellation",
+		characterLevel: "character_level",
+		isOwned: "is_owned",
+		notes: "notes",
 	},
 	StaffRole: {
 		id: "staff_role_id",
@@ -72,7 +87,40 @@ export const ColumnNames = {
 		id: "cost_milestone_id",
 		costFrom: "cost_from",
 		costTo: "cost_to",
-		costValuePerSec: "cost_value_per_sec",
+		secPerCost: "sec_per_cost",
+	},
+	WeaponCost: {
+		id: "weapon_cost_id",
+		weaponRarity: "weapon_rarity",
+		unit: "unit",
+		value: "value",
+		upgradeLevel: "upgrade_level",
+	},
+	Notification: {
+		id: "notification_id",
+		type: "notification_type",
+		content: "notification_content",
+		isRead: "is_read",
+	},
+	Match: {
+		id: "match_id",
+		hostId: "host_id",
+		sessionCount: "session_count",
+		type: "match_type",
+		status: "match_status",
+		redPlayerId: "red_player_id",
+		bluePlayerId: "blue_player_id",
+	},
+	MatchSession: {
+		id: "match_session_id",
+		redParticipantId: "red_participant_id",
+		blueParticipantId: "blue_participant_id",
+	},
+	MatchState: {
+		id: "match_state_id",
+		host_joined: "host_joined",
+		red_player_joined: "red_player_joined",
+		blue_player_joined: "blue_player_joined",
 	},
 };
 
@@ -85,6 +133,10 @@ export const IndexNames = {
 		isActive: "idx_account_is_active",
 		roleIsActive: "idx_account_role_is_active",
 		ingameUuid: "idx_account_ingame_uuid",
+	},
+	AccountCharacter: {
+		accountIdCharacterId: "idx_account_character_account_id_character_id",
+		characterId: "idx_account_character_character_id",
 	},
 	Character: {
 		element: "idx_character_element",
@@ -107,5 +159,19 @@ export const IndexNames = {
 	},
 	Permission: {
 		deprecated: "idx_permission_deprecated",
+	},
+	Match: {
+		hostId: "idx_match_host_id",
+		redPlayerId: "idx_match_red_player_id",
+		bluePlayerId: "idx_match_blue_player_id",
+		createdAt: "idx_match_created_at",
+	},
+	MatchSession: {
+		matchId: "idx_match_session_match_id",
+		redParticipantId: "idx_match_session_red_participant_id",
+		blueParticipantId: "idx_match_session_blue_participant_id",
+	},
+	MatchState: {
+		matchId: "uq_match_state_match_id",
 	},
 };

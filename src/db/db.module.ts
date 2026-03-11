@@ -10,7 +10,13 @@ import {
 	PermissionRepository,
 	StaffRolePermissionRepository,
 	StaffRoleRepository,
+	WeaponCostRepository,
 	WeaponRepository,
+	AccountCharacterRepository,
+	MatchSessionRepository,
+	MatchRepository,
+	NotificationRepository,
+	MatchStateRepository,
 } from "./repositories";
 
 const repositories = [
@@ -22,6 +28,12 @@ const repositories = [
 	WeaponRepository,
 	CharacterCostRepository,
 	CostMilestoneRepository,
+	AccountCharacterRepository,
+	WeaponCostRepository,
+	MatchRepository,
+	MatchSessionRepository,
+	NotificationRepository,
+	MatchStateRepository,
 ];
 
 @Global()

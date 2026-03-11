@@ -34,7 +34,5 @@ export class CharacterListRequest {
 	ltokenV2: string;
 
 	@ApiProperty()
-	@IsString()
-	@IsNotEmpty()
 	language?: string;
 }

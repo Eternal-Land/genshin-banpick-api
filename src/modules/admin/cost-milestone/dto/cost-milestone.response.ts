@@ -14,7 +14,7 @@ export class CostMilestoneResponse {
 	costTo?: number;
 
 	@ApiProperty()
-	costValuePerSec: number;
+	secPerCost: number;
 
 	@ApiProperty()
 	createdAt: Date;
@@ -33,7 +33,7 @@ export class CostMilestoneResponse {
 			.id(entity.id)
 			.costFrom(entity.costFrom)
 			.costTo(entity.costTo)
-			.costValuePerSec(entity.costValuePerSec)
+			.secPerCost(entity.secPerCost)
 			.createdAt(entity.createdAt)
 			.createdBy(
 				entity.createdBy
