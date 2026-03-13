@@ -9,7 +9,6 @@ import {
 	PrimaryGeneratedColumn,
 } from "typeorm";
 import { MatchEntity } from "./match.entity";
-import { AccountEntity } from "./account.entity";
 import { BanPickSlotEntity } from "./ban-pick-slot.entity";
 
 @Entity(TableNames.MatchSession)
@@ -26,29 +25,6 @@ export class MatchSessionEntity {
 	})
 	@JoinColumn({ name: ColumnNames.Match.id })
 	match: MatchEntity;
-
-	@Index(IndexNames.MatchSession.redParticipantId)
-	@Column({ name: ColumnNames.MatchSession.redParticipantId })
-	redParticipantId: string;
-
-	@ManyToOne(() => AccountEntity, { createForeignKeyConstraints: false })
-	@JoinColumn({ name: ColumnNames.MatchSession.redParticipantId })
-	redParticipant: AccountEntity;
-
-	@Index(IndexNames.MatchSession.blueParticipantId)
-	@Column({ name: ColumnNames.MatchSession.blueParticipantId })
-	blueParticipantId: string;
-
-	@ManyToOne(() => AccountEntity, { createForeignKeyConstraints: false })
-	@JoinColumn({ name: ColumnNames.MatchSession.blueParticipantId })
-	blueParticipant: AccountEntity;
-
-	@Column({
-		name: ColumnNames.MatchSession.currentTurn,
-		type: "int",
-		default: 1,
-	})
-	currentTurn: number;
 
 	@Column({
 		name: ColumnNames.MatchSession.totalCostBlue,
