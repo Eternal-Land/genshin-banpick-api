@@ -30,6 +30,7 @@ export class AuthController {
 			httpOnly: true,
 			domain: Env.COOKIE_DOMAIN,
 			secure: Env.COOKIE_SECURE,
+			sameSite: "lax",
 			path: "/",
 			maxAge: Env.JWT_AT_EXPIRATION,
 		});
@@ -41,6 +42,7 @@ export class AuthController {
 	async logout(@Res() res: Response) {
 		res.clearCookie("accessToken", {
 			httpOnly: true,
+			sameSite: "lax",
 			domain: Env.COOKIE_DOMAIN,
 			secure: Env.COOKIE_SECURE,
 		});
