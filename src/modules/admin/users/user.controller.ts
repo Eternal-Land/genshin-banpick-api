@@ -1,5 +1,5 @@
 import { Controller, Get, Query } from "@nestjs/common";
-import { ApiBearerAuth } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { UserService } from "./user.service";
 import { UserQuery, UserResponse } from "./dto";
 import { BaseApiResponse, PaginationDto, SwaggerBaseApiResponse } from "@utils";
@@ -7,6 +7,7 @@ import { RequirePermission } from "@utils/decorators";
 
 @Controller("/admin/users")
 @ApiBearerAuth()
+@ApiTags("Admin Users")
 export class UserController {
 	constructor(private readonly userService: UserService) {}
 

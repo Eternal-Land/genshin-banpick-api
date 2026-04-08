@@ -1,443 +1,102 @@
-# Genshin Banpick API - Copilot Instructions
+# genshin-banpick-api
 
-## Project Overview
-
-This is a NestJS-based API for the Genshin Banpick application. It uses TypeORM for database management with MySQL, JWT for authentication, and follows a modular architecture with role-based access control (RBAC).
+A NestJS REST API backend for a Genshin Impact ban/pick management system. It handles match sessions with ban/pick mechanics, character and weapon management, user authentication with JWT, role-based access control, real-time communication via WebSockets (Socket.IO), HoYoLAB integration, file uploads via Cloudinary, and scheduled background jobs.
 
 ## Tech Stack
 
-- **Framework**: NestJS (v11)
-- **Database**: MySQL with TypeORM (v0.3.28)
-- **Authentication**: JWT (jsonwebtoken)
-- **Runtime**: Node.js with TypeScript
-- **Package Manager**: Bun
-- **Validation**: class-validator + class-transformer
-- **API Documentation**: Swagger/OpenAPI
-- **File Storage**: Cloudinary
-- **Security**: Helmet, bcryptjs
-- **Context Management**: nestjs-cls (ClsModule)
+- TypeScript
+
+## Frameworks and Libraries
+
+- NestJS 11
+- TypeORM 0.3
+- MySQL (mysql2)
+- typeorm-transactional
+- nestjs-cls
+- Socket.IO (@nestjs/websockets, @nestjs/platform-socket.io)
+- @nestjs/schedule (Cron Jobs)
+- JWT (jsonwebtoken)
+- bcryptjs
+- class-validator
+- class-transformer
+- @nestjs/swagger (Swagger/OpenAPI)
+- Cloudinary
+- helmet
+- cookie-parser
+- dayjs
+- builder-pattern
+- dotenv
+- @faker-js/faker (dev)
+- Jest (testing)
+- ESLint + Prettier
+- Husky + lint-staged
+- Commitlint
 
 ## Project Structure
 
-### Path Aliases
-
-- `@db`: `src/db` - Database entities, repositories, and configurations
-- `@modules`: `src/modules` - Feature modules
-- `@utils`: `src/utils` - Utilities, decorators, DTOs, enums
-- `@errors`: `src/errors` - Error definitions
-- `@providers`: `src/providers` - Third-party service integrations
-
-### Module Organization
-
-Each module follows this structure:
-
-```
-@modules/
-  feature-name/
-    feature-name.module.ts
-    feature-name.service.ts
-    feature-name.controller.ts
-    index.ts (exports module, service, controller)
-    dto/
-      *.request.ts (input DTOs)
-      *.response.ts (output DTOs)
-      index.ts
-    errors/
-      *.error.ts (module-specific errors)
-      index.ts
-```
-
-## Core Patterns & Conventions
-
-### 1. Authentication & Authorization
-
-**Global Authentication**:
-
-- `AuthGuard` is registered globally via `APP_GUARD` in `app.module.ts`
-- All routes require authentication by default
-- Use `@SkipAuth()` decorator to bypass authentication
-
-**Skip Authentication**:
-
-```typescript
-@Get('public')
-@SkipAuth()
-async getPublicData() {
-  // No auth required
-}
-```
-
-**Permission-Based Authorization**:
-
-```typescript
-@Get()
-@RequirePermission('admin.staff.list')
-async listStaff() {
-  // Only accounts with this permission can access
-}
-```
-
-**Permission Codes**: Defined in `@utils/constants/permissions.ts` as `PERMISSIONS_MAP`
-
-**Account Roles**:
-
-- `ADMIN`: Super admin with all permissions
-- `STAFF`: Staff with role-based permissions
-- `USER`: Regular user
-
-### 2. Error Handling
-
-**Custom Errors**: All errors must extend `ApiError` class:
-
-```typescript
-export class SampleError extends ApiError<DataType> {
-	constructor(data?: DataType) {
-		super({
-			code: ErrorCode.SAMPLE_ERROR,
-			message: "Sample Error!",
-			detail: data,
-			status: 400, // HTTP status code
-		});
-	}
-}
-```
-
-**Error Codes**: Define in `@utils/enums/error-code.ts`
-
-**Global Exception Filter**: `MyExceptionFilter` catches all errors and formats responses
-
-### 3. API Response Format
-
-**Success Response**:
-
-```typescript
-return BaseApiResponse.success(data, pagination);
-```
-
-**Error Response** (handled by exception filter):
-
-```typescript
-throw new SampleError(detail);
-```
-
-**Response Structure**:
-
-```typescript
-{
-  code: ErrorCode,
-  message: string,
-  data?: T,
-  error?: any,
-  pagination?: PaginationDto
-}
-```
-
-### 4. Swagger Documentation
-
-**Controller-Level**:
-
-```typescript
-@Controller("/admin/staffs")
-@ApiBearerAuth() // Require bearer token
-export class StaffController {}
-```
-
-**Endpoint-Level**:
-
-```typescript
-@Get()
-@SwaggerBaseApiResponse(StaffResponse, { isArray: true })
-async listStaff() {}
-```
-
-### 5. Database Entities
-
-**Entity Naming Convention**:
-
-- File: `{name}.entity.ts`
-- Class: `{Name}Entity`
-- Table name: Use `TableNames` from `@db/db.constants`
-- Column names: Use `ColumnNames` from `@db/db.constants`
-
-**Entity Example**:
-
-```typescript
-@Entity(TableNames.Sample)
-export class SampleEntity {
-	@PrimaryGeneratedColumn("uuid", { name: ColumnNames.Sample.id })
-	id: string;
-
-	@Column({ name: ColumnNames.Sample.name })
-	name: string;
-
-	@CreateDateColumn({ name: ColumnNames.Global.createdAt })
-	createdAt: Date;
-
-	@Column({ name: ColumnNames.Global.createdById, nullable: true })
-	createdById: string;
-
-	@ManyToOne(() => AccountEntity, {
-		createForeignKeyConstraints: false,
-		nullable: true,
-	})
-	@JoinColumn({ name: ColumnNames.Global.createdById })
-	createdBy: AccountEntity;
-}
-```
-
-**Export Entity**: Add to `@db/entities/index.ts`
-
-**Migration Commands**:
-
-```bash
-npm run migration:generate  # Generate migration
-npm run migration:run       # Apply migration
-```
-
-### 6. Repositories
-
-**Create Repository**:
-
-```typescript
-// sample.repository.ts
-@Injectable()
-export class SampleRepository extends Repository<SampleEntity> {
-	constructor(private dataSource: DataSource) {
-		super(SampleEntity, dataSource.createEntityManager());
-	}
-}
-```
-
-**Export & Register**:
-
-1. Export in `@db/repositories/index.ts`
-2. Add to `providers` in `@db/db.module.ts`
-
-### 7. DTOs
-
-**Request DTO** (validation):
-
-```typescript
-export class CreateSampleRequest {
-	@IsString()
-	@IsNotEmpty()
-	name: string;
-
-	@IsEmail()
-	email: string;
-
-	@IsOptional()
-	@IsString()
-	description?: string;
-}
-```
-
-**Response DTO** (transformation):
-
-```typescript
-export class SampleResponse {
-	id: string;
-	name: string;
-	createdAt: Date;
-
-	static fromEntity(entity: SampleEntity): SampleResponse {
-		return {
-			id: entity.id,
-			name: entity.name,
-			createdAt: entity.createdAt,
-		};
-	}
-
-	static fromEntities(entities: SampleEntity[]): SampleResponse[] {
-		return entities.map((e) => this.fromEntity(e));
-	}
-}
-```
-
-### 8. Services
-
-**Service Pattern**:
-
-```typescript
-@Injectable()
-export class SampleService {
-	constructor(
-		private readonly sampleRepo: SampleRepository,
-		private readonly cls: ClsService<GenshinBanpickCls>,
-	) {}
-
-	async create(dto: CreateSampleRequest) {
-		const profile = this.cls.get("profile"); // Current user
-
-		const sample = this.sampleRepo.create({
-			...dto,
-			createdById: profile.id,
-		});
-
-		return await this.sampleRepo.save(sample);
-	}
-}
-```
-
-### 9. Controllers
-
-**Controller Pattern**:
-
-```typescript
-@Controller("/samples")
-@ApiBearerAuth()
-export class SampleController {
-	constructor(private readonly sampleService: SampleService) {}
-
-	@Get()
-	@RequirePermission("sample.list")
-	@SwaggerBaseApiResponse(SampleResponse, { isArray: true })
-	async list() {
-		const samples = await this.sampleService.list();
-		return BaseApiResponse.success(SampleResponse.fromEntities(samples));
-	}
-
-	@Post()
-	@RequirePermission("sample.create")
-	@SwaggerBaseApiResponse(SampleResponse)
-	async create(@Body() dto: CreateSampleRequest) {
-		const sample = await this.sampleService.create(dto);
-		return BaseApiResponse.success(SampleResponse.fromEntity(sample));
-	}
-
-	@Put(":id")
-	@RequirePermission("sample.update")
-	@SwaggerBaseApiResponse(SampleResponse)
-	async update(
-		@Param("id", ParseUUIDPipe) id: string,
-		@Body() dto: UpdateSampleRequest,
-	) {
-		const sample = await this.sampleService.update(id, dto);
-		return BaseApiResponse.success(SampleResponse.fromEntity(sample));
-	}
-}
-```
-
-### 10. Environment Variables
-
-**Add New Variable**:
-
-1. Add to `.env` file
-2. Add to `Env` object in `@utils/env.ts`:
-
-```typescript
-export const Env = {
-	NEW_VAR: process.env.NEW_VAR || "",
-	// or for numbers:
-	NEW_NUMBER: Number(process.env.NEW_NUMBER || "0"),
-	// or for booleans:
-	NEW_BOOL: process.env.NEW_BOOL === "true",
-} as const;
-```
-
-### 11. Current User Context
-
-Access current authenticated user via CLS:
-
-```typescript
-constructor(private readonly cls: ClsService<GenshinBanpickCls>) {}
-
-async someMethod() {
-  const profile = this.cls.get('profile'); // ProfileResponse
-  // profile.id, profile.email, profile.role, etc.
-}
-```
-
-## Development Commands
-
-```bash
-bun install              # Install dependencies
-bun run start:dev        # Start in watch mode
-bun run build            # Build for production
-bun run start:prod       # Start production build
-bun run lint             # Lint code
-bun run lint:fix         # Fix linting issues
-bun run prettier         # Check formatting
-bun run prettier:fix     # Fix formatting
-bun run migration:generate  # Generate migration
-bun run migration:run    # Run migrations
-```
-
-## Creating New Features
-
-### Step-by-Step Guide
-
-1. **Define Entity** (if needed):
-   - Create `{name}.entity.ts` in `@db/entities`
-   - Use `TableNames` and `ColumnNames`
-   - Export in `@db/entities/index.ts`
-   - Run migration commands
-
-2. **Create Repository** (if needed):
-   - Create `{name}.repository.ts` in `@db/repositories`
-   - Extend `Repository<EntityType>`
-   - Export in `@db/repositories/index.ts`
-   - Register in `@db/db.module.ts`
-
-3. **Create Module**:
-   - Create folder in `@modules/{feature-name}`
-   - Create `{feature-name}.module.ts`
-   - Create `{feature-name}.service.ts`
-   - Create `{feature-name}.controller.ts`
-   - Create `index.ts` with exports
-
-4. **Define DTOs**:
-   - Create `dto/` folder
-   - Add `*.request.ts` for inputs (with validation)
-   - Add `*.response.ts` for outputs (with fromEntity methods)
-   - Export in `dto/index.ts`
-
-5. **Define Errors** (if needed):
-   - Create `errors/` folder
-   - Add `*.error.ts` extending `ApiError`
-   - Add error code to `@utils/enums/error-code.ts`
-   - Export in `errors/index.ts`
-
-6. **Add Permissions** (if needed):
-   - Add to `PERMISSIONS_MAP` in `@utils/constants/permissions.ts`
-   - Use `@RequirePermission()` decorator in controller
-
-7. **Register Module**:
-   - Import in `app.module.ts`
-
-## Best Practices
-
-1. **Always use path aliases** (`@db`, `@modules`, `@utils`, `@errors`, `@providers`)
-2. **Use DTOs for validation and transformation** (separate request/response)
-3. **Extend ApiError for custom errors** with proper error codes
-4. **Use BaseApiResponse.success()** for all successful responses
-5. **Apply @ApiBearerAuth()** on protected controllers
-6. **Use @SwaggerBaseApiResponse()** for proper API documentation
-7. **Use CLS context** to access current user instead of passing through parameters
-8. **Follow naming conventions**: entities end with `Entity`, DTOs with `Request`/`Response`
-9. **Use builder-pattern** for complex object construction
-10. **Export all public items** through `index.ts` files
-11. **Use ParseUUIDPipe** for UUID parameters
-12. **Keep services thin** - business logic in services, not controllers
-13. **Use proper HTTP status codes** in error definitions
-
-## Security Notes
-
-- All routes are protected by default (AuthGuard is global)
-- JWT tokens are validated on every request
-- Passwords are hashed with bcryptjs (10 rounds)
-- CORS is enabled for all origins (configure for production)
-- Helmet is configured for security headers
-- Admin account is auto-created on first run
-
-## API Documentation
-
-Access Swagger UI at `/api/docs` when `ENABLE_SWAGGER=true`
-
-## Notes
-
-- This project uses Bun as package manager
-- MySQL is the primary database
-- TypeORM is configured for automatic entity discovery
-- Global validation pipe transforms and validates all inputs
-- Global exception filter handles all errors consistently
+| Name | Type | Path | Description |
+| ---- | ---- | ---- | ----------- |
+| **src** | `folder` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src` | Main source directory containing all application code. |
+| **main.ts** | `file` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/main.ts` | Application entry point. Bootstraps the NestJS app, configures CORS, global pipes (ValidationPipe), exception filters, Swagger docs, helmet security, cookie-parser, and starts listening on the configured port. |
+| **app.module.ts** | `file` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/app.module.ts` | Root NestJS module. Imports all feature modules (auth, admin, user, socket, etc.), sets up the global AuthGuard, and configures the nestjs-cls context middleware globally. |
+| **db** | `folder` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/db` | Database layer. Contains TypeORM entities, custom repositories, migration files, a data seeder, the DataSource configuration (datasource.ts), the DbModule, and db.constants.ts for centralized table/column/index naming. |
+| **db/entities** | `folder` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/db/entities` | TypeORM entity definitions for all database tables: Account, Character, Weapon, Match, MatchSession, MatchState, BanPickSlot, CharacterCost, CharacterLevelCost, WeaponCost, CostMilestone, SessionCost, AccountCharacter, StaffRole, StaffRolePermission, Permission, and Notification. |
+| **db/repositories** | `folder` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/db/repositories` | Custom TypeORM repository classes (one per entity), each extending Repository<T> and injected with DataSource. Registered in DbModule for use across feature modules. |
+| **db/seeder** | `folder` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/db/seeder` | Database seeding scripts used to populate initial data (e.g., admin accounts, permissions). Run via `bun run seed`. |
+| **modules** | `folder` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/modules` | Feature modules directory. Organized into admin, user, and shared modules. |
+| **modules/auth** | `folder` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/modules/auth` | Authentication module. Handles login, JWT token issuance/validation, and the global AuthGuard. Provides @SkipAuth() and @RequirePermission() decorators for access control. |
+| **modules/admin** | `folder` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/modules/admin` | Admin-facing feature modules: character, weapon, staff, role, permission, cost-milestone, character-cost, character-level-cost, weapon-cost, and user management. |
+| **modules/user** | `folder` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/modules/user` | User-facing feature modules: character listing, weapon listing, match session management, user profile, and session-cost tracking. |
+| **modules/self** | `folder` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/modules/self` | Module for the currently authenticated user to view and manage their own profile data. |
+| **modules/account-character** | `folder` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/modules/account-character` | Module for managing the association between user accounts and their owned/selected Genshin Impact characters. |
+| **modules/files** | `folder` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/modules/files` | File upload module. Handles uploading assets to Cloudinary. |
+| **modules/hoyolab** | `folder` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/modules/hoyolab` | HoYoLAB integration module. Communicates with the official HoYoLAB public API (e.g., for game data retrieval). |
+| **modules/socket** | `folder` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/modules/socket` | WebSocket module using Socket.IO. Contains the main gateway (socket.gateway.ts), a socket-specific auth guard, exception filter, and sub-services for real-time match/ban-pick event handling. |
+| **modules/notification** | `folder` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/modules/notification` | Notification module for creating and managing in-app notifications pushed to users. |
+| **modules/cron** | `folder` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/modules/cron` | Scheduled task (cron job) module using @nestjs/schedule. Handles periodic background operations. |
+| **providers** | `folder` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/providers` | Third-party service provider wrappers. Currently contains a Google provider with an OAuth2 sub-module. |
+| **providers/google** | `folder` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/providers/google` | Google service provider module, including an OAuth2 sub-module for Google-based authentication flows. |
+| **errors** | `folder` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/errors` | Global error definitions. Contains the base ApiError class and ApiValidationError. All module-specific errors extend ApiError. |
+| **utils** | `folder` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/utils` | Shared utilities including env.ts (typed environment variables via Env object), genshin-banpick-cls.ts (CLS context type), my-exception.filter.ts (global exception filter), plus sub-folders for decorators, DTOs, enums, types, and constants. |
+| **utils/env.ts** | `file` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/utils/env.ts` | Exports the typed Env object for accessing all environment variables throughout the application. Must be updated when new env variables are added. |
+| **utils/genshin-banpick-cls.ts** | `file` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/utils/genshin-banpick-cls.ts` | Defines the typed CLS (continuation-local storage) context shape used by nestjs-cls to carry per-request data such as the current authenticated user profile. |
+| **utils/my-exception.filter.ts** | `file` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/src/utils/my-exception.filter.ts` | Global NestJS exception filter that catches all errors (including ApiError subclasses) and formats them into a standardized API error response. |
+| **.env.example** | `file` | `C:/Works/Personal/genshin-banpick/genshin-banpick-api/.env.example` | Template for the required .env file. Covers server port, CORS origins, database credentials, JWT secrets, cookie settings, Cloudinary credentials, and HoYoLAB API configuration. |
+
+## Scripts
+
+| Name | Description |
+| ---- | ----------- |
+| `build` | Compiles the NestJS application using the Nest CLI (`nest build`), outputting to the /dist directory. |
+| `start` | Starts the application in production mode using the Nest CLI (`nest start`). |
+| `start:dev` | Starts the application in development watch mode (`nest start --watch`). Recommended for local development. |
+| `start:debug` | Starts the application in debug + watch mode with the Node.js inspector enabled. |
+| `start:prod` | Runs the compiled production build directly via Node.js (`node dist/main`). Used in the Docker container. |
+| `lint` | Runs ESLint on all TypeScript files in the src/ directory to report linting errors. |
+| `lint:fix` | Runs ESLint with the --fix flag to automatically fix linting issues in src/. |
+| `prettier` | Checks code formatting of all src/**/*.ts files using Prettier without modifying them. |
+| `prettier:fix` | Applies Prettier formatting to all src/**/*.ts files in-place. |
+| `prepare` | Installs Husky git hooks. Runs automatically after `bun install`. |
+| `test` | Runs the Jest unit test suite. |
+| `test:watch` | Runs Jest in interactive watch mode. |
+| `test:cov` | Runs Jest and generates a code coverage report in the /coverage directory. |
+| `test:debug` | Runs Jest with the Node.js debugger attached, useful for stepping through tests. |
+| `test:e2e` | Runs end-to-end tests using the Jest config at ./test/jest-e2e.json. |
+| `migration:generate` | Generates a new TypeORM migration file by diffing the current entities against the database schema. Outputs to src/db/migrations/. |
+| `migration:run` | Runs all pending TypeORM migrations against the configured database. |
+| `seed` | Executes the database seeder script (src/db/seeder/index.ts) to populate initial data such as admin accounts and permissions. |
+
+## Configurations
+
+| Name | Description |
+| ---- | ----------- |
+| `tsconfig.json` | Root TypeScript configuration. Sets compilation target to ES2021, enables decorator metadata and experimental decorators (required by NestJS/TypeORM), configures path aliases (@utils, @errors, @db, @modules/*, @providers/*) for clean imports, and outputs to /dist. |
+| `tsconfig.build.json` | Extends tsconfig.json for production builds. Excludes node_modules, test files, dist, and spec files to produce a clean build artifact. |
+| `nest-cli.json` | NestJS CLI configuration. Sets the source root to src/ and enables deleteOutDir to clean the /dist folder before each build. |
+| `docker-compose.yaml` | Docker Compose configuration for local development. Spins up a MySQL 8.0 database container (genshin_banpick_mysql) with a persistent volume (genshin_banpick_db_vol) and a dedicated bridge network (genshin_banpick_net). DB credentials and port are sourced from .env. |
+| `Dockerfile` | Multi-stage Docker build for the API. The builder stage installs dependencies with Bun and compiles the app. The runner stage creates a lean production image that runs the compiled output via Node.js. |
+| `.env.example` | Documents all required environment variables: LISTEN_PORT, CORS_ORIGINS, DB_* (MySQL connection), JWT_AT_SECRET/JWT_AT_EXPIRATION, COOKIE_DOMAIN/COOKIE_SECURE, ENABLE_SWAGGER, ADMIN_EMAIL/ADMIN_PASSWORD, CLOUDINARY_*, and HOYOLAB_*. |
+| `.eslintrc.js` | ESLint configuration. Uses @typescript-eslint parser, extends recommended TypeScript and Prettier rules, and relaxes some strict rules (no-explicit-any, no-unused-vars, explicit-function-return-type) for developer convenience. |
+| `.prettierrc` | Prettier code style configuration. Enforces tabs for indentation, double quotes, trailing commas, semicolons, and arrow function parentheses. |
+| `.commitlintrc.cjs` | Commitlint configuration enforcing Conventional Commits format. Restricts commit types to: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert. Max header length is 100 characters. |
+| `changelog.config.js` | Changelog generation configuration for git-cz (commitizen). Defines commit type labels and emoji mappings used when composing commits interactively. |

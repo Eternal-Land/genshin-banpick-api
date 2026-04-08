@@ -18,6 +18,7 @@ export class MyExceptionFilter implements ExceptionFilter {
 	 * @param host The arguments host providing access to the request/response objects.
 	 */
 	catch(exception: any, host: ArgumentsHost) {
+		console.error(exception);
 		const res = host.switchToHttp().getResponse<Response>();
 
 		if (exception instanceof ApiError) {
@@ -45,7 +46,7 @@ export class MyExceptionFilter implements ExceptionFilter {
 		}
 
 		return res
-			.status(200)
+			.status(500)
 			.send(
 				BaseApiResponse.error(
 					ErrorCode.UNKNOWN_ERROR,

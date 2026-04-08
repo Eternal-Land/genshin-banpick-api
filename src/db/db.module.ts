@@ -10,8 +10,18 @@ import {
 	PermissionRepository,
 	StaffRolePermissionRepository,
 	StaffRoleRepository,
+	WeaponCostRepository,
 	WeaponRepository,
+	AccountCharacterRepository,
+	MatchSessionRepository,
+	MatchRepository,
+	NotificationRepository,
+	MatchStateRepository,
+	BanPickSlotRepository,
+	SessionCostRepository,
+	SessionRecordRepository,
 } from "./repositories";
+import { CharacterLevelCostRepository } from "./repositories/character-level-cost.repository";
 
 const repositories = [
 	PermissionRepository,
@@ -22,6 +32,16 @@ const repositories = [
 	WeaponRepository,
 	CharacterCostRepository,
 	CostMilestoneRepository,
+	AccountCharacterRepository,
+	WeaponCostRepository,
+	MatchRepository,
+	MatchSessionRepository,
+	NotificationRepository,
+	MatchStateRepository,
+	BanPickSlotRepository,
+	SessionCostRepository,
+	SessionRecordRepository,
+	CharacterLevelCostRepository,
 ];
 
 @Global()

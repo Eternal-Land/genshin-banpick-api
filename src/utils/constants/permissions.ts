@@ -32,4 +32,19 @@ export const PERMISSIONS_MAP = {
 	"admin.cost-milestone.create": "Create Cost Milestone",
 	"admin.cost-milestone.update": "Update Cost Milestone",
 	"admin.cost-milestone.delete": "Delete Cost Milestone",
+
+	"admin.character-cost.list": "View Character Costs List",
+	"admin.character-cost.sync": "Sync Character Costs",
+	"admin.character-cost.update": "Update Character Cost",
+
+	"admin.character-level-cost.list": "View Character Level Costs List",
+	"admin.character-level-cost.detail": "View Character Level Cost Detail",
+	"admin.character-level-cost.create": "Create Character Level Cost",
+	"admin.character-level-cost.update": "Update Character Level Cost",
+	"admin.character-level-cost.delete": "Delete Character Level Cost",
+
+	"admin.weapon-cost.list": "View Weapon Costs List",
+	"admin.weapon-cost.update": "Update Weapon Cost",
+	"admin.weapon-cost.sync": "Sync Weapon Cost",
+	"admin.weapon-cost.clear": "Clear All Weapon Costs",
 } as const;

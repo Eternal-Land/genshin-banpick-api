@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsInt, IsOptional, Min } from "class-validator";
+import { IsOptional, Min } from "class-validator";
 
 export class UpdateCostMilestoneRequest {
 	@ApiProperty({
@@ -24,5 +24,5 @@ export class UpdateCostMilestoneRequest {
 	})
 	@IsOptional()
 	@Min(0)
-	costValuePerSec?: number;
+	secPerCost?: number;
 }

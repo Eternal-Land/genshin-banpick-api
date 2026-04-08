@@ -4,6 +4,7 @@ import { ClsService } from "nestjs-cls";
 import { GenshinBanpickCls } from "@utils";
 import { CreateWeaponRequest, UpdateWeaponRequest, WeaponQuery } from "./dto";
 import { WeaponKeyAlreadyExistsError, WeaponNotFoundError } from "./errors";
+import { Transactional } from "typeorm-transactional";
 
 @Injectable()
 export class WeaponService {
@@ -65,6 +66,7 @@ export class WeaponService {
 		return weapon;
 	}
 
+	@Transactional()
 	async createWeapon(dto: CreateWeaponRequest) {
 		const existing = await this.weaponRepo.findOne({
 			where: { key: dto.key },
@@ -95,6 +97,7 @@ export class WeaponService {
 		});
 	}
 
+	@Transactional()
 	async updateWeapon(id: number, dto: UpdateWeaponRequest) {
 		const weapon = await this.weaponRepo.findOne({
 			where: { id },
@@ -142,6 +145,7 @@ export class WeaponService {
 		});
 	}
 
+	@Transactional()
 	async toggleActive(id: number) {
 		const weapon = await this.weaponRepo.findOne({
 			where: { id },

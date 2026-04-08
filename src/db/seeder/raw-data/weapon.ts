@@ -177,7 +177,7 @@ export const rawWeaps: DeepPartial<WeaponEntity>[] = [
 		iconUrl:
 			"https://res.cloudinary.com/dphtvhtvf/image/upload/v1768877691/Crimson_Moon_s_Semblance_lwjdue.png",
 		rarity: WeaponRarity.WEAPON_S,
-		type: WeaponType.CLAYMORE,
+		type: WeaponType.POLEARM,
 	},
 	{
 		key: "silvershower_heartstrings",

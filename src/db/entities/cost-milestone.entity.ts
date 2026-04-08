@@ -34,12 +34,12 @@ export class CostMilestoneEntity {
 	costTo: number;
 
 	@Column({
-		name: ColumnNames.CostMilestone.costValuePerSec,
+		name: ColumnNames.CostMilestone.secPerCost,
 		type: "decimal",
 		precision: 7,
 		scale: 2,
 	})
-	costValuePerSec: number;
+	secPerCost: number;
 
 	@CreateDateColumn({ name: ColumnNames.Global.createdAt })
 	createdAt: Date;
@@ -68,6 +68,6 @@ export class CostMilestoneEntity {
 	afterLoad() {
 		this.costFrom = Number(this.costFrom);
 		this.costTo = this.costTo !== null ? Number(this.costTo) : null;
-		this.costValuePerSec = Number(this.costValuePerSec);
+		this.secPerCost = Number(this.secPerCost);
 	}
 }

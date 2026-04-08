@@ -11,9 +11,21 @@ import { FilesModule } from "@modules/files";
 import { SelfModule } from "@modules/self";
 import { HoyolabModule } from "@modules/hoyolab";
 import { WeaponModule } from "@modules/admin/weapon";
-import { UserModule } from "@modules/admin/users";
+import { UserModule as AdminUserModule } from "@modules/admin/users";
 import { CostMilestoneModule } from "@modules/admin/cost-milestone";
 import { CharacterCostModule } from "@modules/admin/character-cost";
+import { AccountCharacterModule } from "@modules/account-character";
+import { UserCharacterModule } from "@modules/user/character";
+import { MatchModule } from "@modules/user/match";
+import { UserWeaponModule } from "@modules/user/weapon";
+import { WeaponCostModule } from "@modules/admin/weapon-cost";
+import { UserModule } from "@modules/user/user";
+import { SocketModule } from "@modules/socket";
+import { NotificationModule } from "@modules/notification";
+import { CronModule } from "@modules/cron";
+import { UserSessionCostModule } from "@modules/user/session-cost";
+import { CharacterLevelCostModule } from "@modules/admin/character-level-cost/character-level-cost.module";
+import { UserSessionRecordModule } from "@modules/user/session-record";
 
 @Module({
 	imports: [
@@ -24,18 +36,30 @@ import { CharacterCostModule } from "@modules/admin/character-cost";
 				mount: true,
 			},
 		}),
+		AuthModule,
 		PermissionModule,
 		CharacterModule,
 		StaffRoleModule,
-		AuthModule,
 		StaffModule,
 		FilesModule,
 		SelfModule,
 		HoyolabModule,
 		WeaponModule,
-		UserModule,
+		AdminUserModule,
 		CostMilestoneModule,
 		CharacterCostModule,
+		CharacterLevelCostModule,
+		AccountCharacterModule,
+		UserCharacterModule,
+		MatchModule,
+		UserWeaponModule,
+		WeaponCostModule,
+		UserModule,
+		SocketModule,
+		NotificationModule,
+		CronModule,
+		UserSessionCostModule,
+		UserSessionRecordModule,
 	],
 	controllers: [],
 	providers: [

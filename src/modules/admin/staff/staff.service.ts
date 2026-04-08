@@ -10,6 +10,7 @@ import { AccountRole } from "@utils/enums";
 import { ClsService } from "nestjs-cls";
 import { GenshinBanpickCls } from "@utils";
 import * as bcrypt from "bcryptjs";
+import { Transactional } from "typeorm-transactional";
 
 @Injectable()
 export class StaffService {
@@ -44,6 +45,7 @@ export class StaffService {
 		return staff;
 	}
 
+	@Transactional()
 	async createStaff(dto: CreateStaffRequest) {
 		const existing = await this.accountRepo.findOne({
 			where: { email: dto.email },
@@ -84,6 +86,7 @@ export class StaffService {
 		});
 	}
 
+	@Transactional()
 	async updateStaff(id: string, dto: UpdateStaffRequest) {
 		const staff = await this.accountRepo.findOne({
 			where: { id, role: AccountRole.STAFF },
@@ -135,6 +138,7 @@ export class StaffService {
 		});
 	}
 
+	@Transactional()
 	async toggleActive(id: string) {
 		const staff = await this.accountRepo.findOne({
 			where: { id, role: AccountRole.STAFF },
