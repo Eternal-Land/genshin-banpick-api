@@ -30,7 +30,7 @@ export class AuthController {
 			httpOnly: true,
 			domain: Env.COOKIE_DOMAIN,
 			secure: Env.COOKIE_SECURE,
-			path: "/api",
+			path: "/",
 			maxAge: Env.JWT_AT_EXPIRATION,
 		});
 		return res.status(200).send(BaseApiResponse.success(data));
