@@ -28,10 +28,9 @@ export class AuthController {
 		const data = await this.authService.loginBasic(dto);
 		res.cookie("accessToken", data.accessToken, {
 			httpOnly: true,
-			sameSite: "none",
 			domain: Env.COOKIE_DOMAIN,
 			secure: Env.COOKIE_SECURE,
-			path: "/",
+			path: "/api",
 			maxAge: Env.JWT_AT_EXPIRATION,
 		});
 		return res.status(200).send(BaseApiResponse.success(data));
@@ -42,7 +41,6 @@ export class AuthController {
 	async logout(@Res() res: Response) {
 		res.clearCookie("accessToken", {
 			httpOnly: true,
-			sameSite: "lax",
 			domain: Env.COOKIE_DOMAIN,
 			secure: Env.COOKIE_SECURE,
 		});
