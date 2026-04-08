@@ -28,7 +28,7 @@ export class AuthController {
 		const data = await this.authService.loginBasic(dto);
 		res.cookie("accessToken", data.accessToken, {
 			httpOnly: true,
-			sameSite: "lax",
+			sameSite: "none",
 			domain: Env.COOKIE_DOMAIN,
 			secure: Env.COOKIE_SECURE,
 			path: "/",
