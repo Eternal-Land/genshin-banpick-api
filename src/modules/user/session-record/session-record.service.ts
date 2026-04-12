@@ -4,8 +4,10 @@ import {
 	SessionCostRepository,
 	SessionRecordRepository,
 } from "@db/repositories";
+import { MatchSessionEntity, SessionRecordEntity } from "@db/entities";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { GenshinBanpickCls } from "@utils";
+import { MatchType } from "@utils/enums";
 import { ClsService } from "nestjs-cls";
 import { In } from "typeorm";
 import { SaveSessionRecordRequest } from "./dto";
@@ -20,50 +22,98 @@ export class UserSessionRecordService {
 		private readonly cls: ClsService<GenshinBanpickCls>,
 	) {}
 
-	async save(matchSessionId: number, dto: SaveSessionRecordRequest) {
-		const currentAccountId = this.cls.get("profile.id");
+	async save(
+		matchSessionId: number,
+		dto: SaveSessionRecordRequest,
+		accountId?: string,
+	) {
+		const currentAccountId = accountId ?? this.cls.get("profile.id");
 
-		const matchSession = await this.matchSessionRepo.findOne({
-			where: { id: matchSessionId, isDeleted: false },
-		});
-
-		if (!matchSession) {
-			throw new NotFoundException("Match session not found");
-		}
-
-		const existedRecord = await this.sessionRecordRepo.findOne({
-			where: { matchSessionId, isDeleted: false },
-		});
-
-		const payload = {
-			matchSessionId,
-			blueChamber1: dto.blueChamber1,
-			blueChamber2: dto.blueChamber2,
-			blueChamber3: dto.blueChamber3,
-			blueResetTimes: dto.blueResetTimes,
-			blueFinalTime: dto.blueFinalTime,
-			redChamber1: dto.redChamber1,
-			redChamber2: dto.redChamber2,
-			redChamber3: dto.redChamber3,
-			redResetTimes: dto.redResetTimes,
-			redFinalTime: dto.redFinalTime,
-		};
-
-		if (!existedRecord) {
-			return await this.sessionRecordRepo.save(
-				this.sessionRecordRepo.create({
-					...payload,
-					createdBy: currentAccountId,
-					updatedBy: currentAccountId,
+		return await this.sessionRecordRepo.manager.transaction(async (manager) => {
+			const matchSession = await manager
+				.getRepository(MatchSessionEntity)
+				.createQueryBuilder("matchSession")
+				.leftJoinAndSelect("matchSession.match", "match")
+				.setLock("pessimistic_write")
+				.where("matchSession.id = :matchSessionId", { matchSessionId })
+				.andWhere("matchSession.isDeleted = :isDeleted", {
 					isDeleted: false,
-				}),
-			);
-		}
+				})
+				.getOne();
 
-		Object.assign(existedRecord, payload);
-		existedRecord.updatedBy = currentAccountId;
-		existedRecord.isDeleted = false;
-		return await this.sessionRecordRepo.save(existedRecord);
+			if (!matchSession) {
+				throw new NotFoundException("Match session not found");
+			}
+
+			const sessionRecordRepo = manager.getRepository(SessionRecordEntity);
+			const existedRecords = await sessionRecordRepo.find({
+				where: { matchSessionId, isDeleted: false },
+				order: { updatedAt: "DESC", id: "DESC" },
+			});
+
+			const toChamberTotal = (value: number) => {
+				const normalized = Number.isFinite(value)
+					? Math.max(0, Math.floor(value))
+					: 0;
+				return Math.max(0, 600 - normalized);
+			};
+
+			const isRealtimeMatch = matchSession.match?.type === MatchType.REALTIME;
+
+			const blueChamber1 = toChamberTotal(dto.blueChamber1);
+			const blueChamber2 = isRealtimeMatch
+				? 0
+				: toChamberTotal(dto.blueChamber2);
+			const blueChamber3 = isRealtimeMatch
+				? 0
+				: toChamberTotal(dto.blueChamber3);
+
+			const redChamber1 = toChamberTotal(dto.redChamber1);
+			const redChamber2 = isRealtimeMatch ? 0 : toChamberTotal(dto.redChamber2);
+			const redChamber3 = isRealtimeMatch ? 0 : toChamberTotal(dto.redChamber3);
+
+			const payload = {
+				matchSessionId,
+				blueChamber1,
+				blueChamber2,
+				blueChamber3,
+				blueResetTimes: dto.blueResetTimes,
+				blueFinalTime: blueChamber1 + blueChamber2 + blueChamber3,
+				redChamber1,
+				redChamber2,
+				redChamber3,
+				redResetTimes: dto.redResetTimes,
+				redFinalTime: redChamber1 + redChamber2 + redChamber3,
+			};
+
+			const primaryRecord = existedRecords[0];
+			const duplicateRecords = existedRecords.slice(1);
+
+			if (!primaryRecord) {
+				return await sessionRecordRepo.save(
+					sessionRecordRepo.create({
+						...payload,
+						createdBy: currentAccountId,
+						updatedBy: currentAccountId,
+						isDeleted: false,
+					}),
+				);
+			}
+
+			Object.assign(primaryRecord, payload);
+			primaryRecord.updatedBy = currentAccountId;
+			primaryRecord.isDeleted = false;
+
+			if (duplicateRecords.length > 0) {
+				for (const duplicateRecord of duplicateRecords) {
+					duplicateRecord.isDeleted = true;
+					duplicateRecord.updatedBy = currentAccountId;
+				}
+				await sessionRecordRepo.save(duplicateRecords);
+			}
+
+			return await sessionRecordRepo.save(primaryRecord);
+		});
 	}
 
 	async getMatchReport(matchId: string) {

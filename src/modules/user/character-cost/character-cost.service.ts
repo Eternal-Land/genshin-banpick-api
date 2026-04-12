@@ -2,18 +2,22 @@ import { CharacterRepository } from "@db/repositories";
 import { Injectable } from "@nestjs/common";
 
 @Injectable()
-export class UserCharacterService {
+export class UserCharacterCostService {
 	constructor(private readonly characterRepo: CharacterRepository) {}
 
-	async listCharacters() {
+	async listCharacterCosts() {
 		return this.characterRepo.find({
 			where: { isActive: true },
 			relations: {
-				createdBy: true,
-				updatedBy: true,
+				characterCosts: true,
 			},
 			order: {
 				element: "ASC",
+				rarity: "DESC",
+				name: "ASC",
+				characterCosts: {
+					constellation: "ASC",
+				},
 			},
 		});
 	}

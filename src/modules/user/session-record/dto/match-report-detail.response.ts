@@ -108,6 +108,15 @@ class MatchSessionReportItemResponse {
 	@ApiProperty({ type: Number, nullable: true })
 	redFinalTime: number | null;
 
+	@ApiProperty({ type: Number, nullable: true })
+	blueResultTotal: number | null;
+
+	@ApiProperty({ type: Number, nullable: true })
+	redResultTotal: number | null;
+
+	@ApiProperty({ type: Number, nullable: true })
+	resultDifference: number | null;
+
 	@ApiProperty({ type: () => SessionRecordSummaryResponse, nullable: true })
 	record: SessionRecordSummaryResponse | null;
 
@@ -144,25 +153,41 @@ export class MatchReportDetailResponse {
 		record?: SessionRecordEntity | null,
 		cost?: SessionCostEntity | null,
 	): PlayerSide | null {
-		if (!record) {
+		const totals = this.resolveResultTotals(record, cost);
+		if (!totals) {
 			return null;
 		}
 
-		if (record.blueFinalTime <= 0 || record.redFinalTime <= 0) {
-			return null;
-		}
-
-		const blueTotalTime =
-			Number(record.blueFinalTime) +
-			(cost ? Number(cost.blueTimeBonusCost) : 0);
-		const redTotalTime =
-			Number(record.redFinalTime) + (cost ? Number(cost.redTimeBonusCost) : 0);
+		const { blueTotalTime, redTotalTime } = totals;
 
 		if (blueTotalTime === redTotalTime) {
 			return null;
 		}
 
 		return blueTotalTime < redTotalTime ? PlayerSide.BLUE : PlayerSide.RED;
+	}
+
+	private static resolveResultTotals(
+		record?: SessionRecordEntity | null,
+		cost?: SessionCostEntity | null,
+	): { blueTotalTime: number; redTotalTime: number } | null {
+		if (!record) {
+			return null;
+		}
+
+		const blueTotalTime =
+			Number(cost?.blueTimeBonusCost ?? 0) +
+			Math.max(0, Number(record.blueChamber1)) +
+			Math.max(0, Number(record.blueChamber2)) +
+			Math.max(0, Number(record.blueChamber3));
+
+		const redTotalTime =
+			Number(cost?.redTimeBonusCost ?? 0) +
+			Math.max(0, Number(record.redChamber1)) +
+			Math.max(0, Number(record.redChamber2)) +
+			Math.max(0, Number(record.redChamber3));
+
+		return { blueTotalTime, redTotalTime };
 	}
 
 	static fromEntity(
@@ -175,6 +200,7 @@ export class MatchReportDetailResponse {
 			const record = recordsBySessionId.get(session.id) ?? null;
 			const cost = costsBySessionId.get(session.id) ?? null;
 			const winnerSide = this.resolveWinner(record, cost);
+			const resultTotals = this.resolveResultTotals(record, cost);
 			return Builder(MatchSessionReportItemResponse)
 				.matchSessionId(session.id)
 				.sessionIndex(session.sessionIndex)
@@ -195,6 +221,13 @@ export class MatchReportDetailResponse {
 				.winnerSide(winnerSide)
 				.blueFinalTime(record?.blueFinalTime ?? null)
 				.redFinalTime(record?.redFinalTime ?? null)
+				.blueResultTotal(resultTotals?.blueTotalTime ?? null)
+				.redResultTotal(resultTotals?.redTotalTime ?? null)
+				.resultDifference(
+					resultTotals
+						? Math.abs(resultTotals.blueTotalTime - resultTotals.redTotalTime)
+						: null,
+				)
 				.record(record ? SessionRecordSummaryResponse.fromEntity(record) : null)
 				.cost(cost ? SessionCostResponse.fromEntity(cost) : null)
 				.build();

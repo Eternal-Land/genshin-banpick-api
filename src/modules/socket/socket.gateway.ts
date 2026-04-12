@@ -18,6 +18,27 @@ import { SocketGuard } from "./socket.guard";
 import { SocketEvents } from "@utils/constants";
 import { SkipAuth } from "@utils";
 import { SocketExceptionFilter } from "./socket.exception-filter";
+import { UserSessionRecordService } from "@modules/user/session-record";
+import { SaveSessionRecordRequest } from "@modules/user/session-record/dto";
+
+type SaveMatchTimerInputsPayload = {
+	matchId?: string;
+	matchSessionId?: number;
+	record?: SaveSessionRecordRequest;
+};
+
+const SESSION_RECORD_FIELDS: Array<keyof SaveSessionRecordRequest> = [
+	"blueChamber1",
+	"blueChamber2",
+	"blueChamber3",
+	"blueResetTimes",
+	"blueFinalTime",
+	"redChamber1",
+	"redChamber2",
+	"redChamber3",
+	"redResetTimes",
+	"redFinalTime",
+];
 
 @WebSocketGateway()
 @UseFilters(SocketExceptionFilter)
@@ -31,6 +52,7 @@ export class SocketGateway
 	constructor(
 		private readonly socketService: SocketService,
 		private readonly socketMatchService: SocketMatchService,
+		private readonly userSessionRecordService: UserSessionRecordService,
 	) {}
 
 	// Init the gateway and set the server instance in the service
@@ -79,5 +101,97 @@ export class SocketGateway
 	async handleLeaveMatchRoom(client: Socket, matchId: string) {
 		await this.socketMatchService.leaveMatchRoom(client, matchId);
 		return { ok: true };
+	}
+
+	@SubscribeMessage(SocketEvents.UPDATE_MATCH_TIMER_INPUTS)
+	@SkipAuth()
+	async handleSyncMatchTimerInputs(
+		client: Socket,
+		payload: {
+			matchId?: string;
+			timerInputs?: {
+				blue?: {
+					chamber1?: string;
+					chamber2?: string;
+					chamber3?: string;
+					reset?: string;
+				};
+				red?: {
+					chamber1?: string;
+					chamber2?: string;
+					chamber3?: string;
+					reset?: string;
+				};
+			};
+			updatedBy?: string;
+		},
+	) {
+		if (!payload?.matchId || !payload?.timerInputs) {
+			return { ok: false };
+		}
+
+		this.socketMatchService.emitToMatch(
+			payload.matchId,
+			SocketEvents.UPDATE_MATCH_TIMER_INPUTS,
+			{
+				timerInputs: payload.timerInputs,
+				updatedBy: payload.updatedBy,
+			},
+		);
+
+		return { ok: true };
+	}
+
+	@SubscribeMessage(SocketEvents.SAVE_MATCH_TIMER_INPUTS)
+	async handleSaveMatchTimerInputs(
+		client: Socket,
+		payload: SaveMatchTimerInputsPayload,
+	) {
+		const matchSessionId = Number(payload?.matchSessionId);
+		if (!Number.isInteger(matchSessionId) || matchSessionId <= 0) {
+			throw new WsException("Invalid matchSessionId");
+		}
+
+		if (!this.isValidSessionRecord(payload?.record)) {
+			throw new WsException("Invalid session record payload");
+		}
+
+		const profileId = client.data?.profile?.id;
+		if (!profileId) {
+			throw new WsException("Unauthorized");
+		}
+
+		await this.userSessionRecordService.save(
+			matchSessionId,
+			payload.record,
+			profileId,
+		);
+
+		if (payload?.matchId) {
+			this.socketMatchService.emitToMatch(
+				payload.matchId,
+				SocketEvents.SAVE_MATCH_TIMER_INPUTS,
+				{
+					matchSessionId,
+					record: payload.record,
+					updatedBy: profileId,
+				},
+			);
+		}
+
+		return { ok: true };
+	}
+
+	private isValidSessionRecord(
+		record: SaveSessionRecordRequest | undefined,
+	): record is SaveSessionRecordRequest {
+		if (!record) {
+			return false;
+		}
+
+		return SESSION_RECORD_FIELDS.every((field) => {
+			const value = record[field];
+			return Number.isInteger(value) && value >= 0;
+		});
 	}
 }

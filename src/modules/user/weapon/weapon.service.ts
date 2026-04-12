@@ -13,6 +13,7 @@ export class UserWeaponService {
 				updatedBy: true,
 			},
 			order: {
+				rarity: "DESC",
 				name: "ASC",
 			},
 		});

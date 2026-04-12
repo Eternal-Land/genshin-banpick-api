@@ -10,6 +10,8 @@ import {
 } from "@db/repositories";
 import {
 	MatchEntity,
+	SessionCostEntity,
+	SessionRecordEntity,
 	MatchSessionEntity,
 	MatchStateEntity,
 } from "@db/entities";
@@ -41,6 +43,7 @@ import {
 import { SocketMatchService } from "@modules/socket/services";
 import { SocketEvents } from "@utils/constants";
 import { In, Not } from "typeorm";
+import { UserSessionCostService } from "../session-cost";
 
 interface DraftAction {
 	side: PlayerSide;
@@ -83,6 +86,7 @@ export class MatchService {
 		private readonly matchRepo: MatchRepository,
 		private readonly cls: ClsService<GenshinBanpickCls>,
 		private readonly socketMatchService: SocketMatchService,
+		private readonly userSessionCostService: UserSessionCostService,
 		private readonly matchStateRepo: MatchStateRepository,
 		private readonly matchSessionRepo: MatchSessionRepository,
 		private readonly banPickSlotRepo: BanPickSlotRepository,
@@ -755,28 +759,38 @@ export class MatchService {
 		}
 
 		const normalizedWeaponId = Number(weaponId);
-		if (!Number.isInteger(normalizedWeaponId) || normalizedWeaponId <= 0) {
+		if (!Number.isInteger(normalizedWeaponId)) {
 			throw new WeaponNotFoundError();
 		}
 
 		const normalizedWeaponRefinement = Number(weaponRefinement);
-		if (
-			!Number.isInteger(normalizedWeaponRefinement) ||
+		if (!Number.isInteger(normalizedWeaponRefinement)) {
+			throw new BadRequestException("Invalid weapon refinement");
+		}
+
+		const isUnequip = normalizedWeaponId <= 0;
+		if (isUnequip) {
+			if (normalizedWeaponRefinement !== 0) {
+				throw new BadRequestException("Invalid weapon refinement");
+			}
+		} else if (
 			normalizedWeaponRefinement < 1 ||
 			normalizedWeaponRefinement > 5
 		) {
 			throw new BadRequestException("Invalid weapon refinement");
 		}
 
-		const weapon = await this.weaponRepo.findOne({
-			where: {
-				id: normalizedWeaponId,
-				isActive: true,
-			},
-		});
+		if (!isUnequip) {
+			const weapon = await this.weaponRepo.findOne({
+				where: {
+					id: normalizedWeaponId,
+					isActive: true,
+				},
+			});
 
-		if (!weapon) {
-			throw new WeaponNotFoundError();
+			if (!weapon) {
+				throw new WeaponNotFoundError();
+			}
 		}
 
 		const normalizedSide = this.normalizePlayerSide(playerSide);
@@ -801,10 +815,24 @@ export class MatchService {
 			throw new AccountCharacterNotFoundError();
 		}
 
-		selectedPickSlot.weaponId = normalizedWeaponId;
-		selectedPickSlot.weaponRefinement = normalizedWeaponRefinement;
-		selectedPickSlot.weaponSelectedAt = new Date();
+		if (isUnequip) {
+			selectedPickSlot.weaponId = null;
+			selectedPickSlot.weaponRefinement = null;
+			selectedPickSlot.weaponSelectedAt = null;
+		} else {
+			selectedPickSlot.weaponId = normalizedWeaponId;
+			selectedPickSlot.weaponRefinement = normalizedWeaponRefinement;
+			selectedPickSlot.weaponSelectedAt = new Date();
+		}
 		await this.banPickSlotRepo.save(selectedPickSlot);
+
+		try {
+			await this.userSessionCostService.calculate(matchSession.id, {
+				side: playerSide,
+			});
+		} catch {
+			// Keep weapon selection successful even if cost recalculation fails.
+		}
 
 		const savedMatchState = await this.saveAndBroadcastMatchState(
 			matchId,
@@ -863,14 +891,17 @@ export class MatchService {
 			const record = records.find((r) => r.matchSessionId === session.id);
 			const cost = costs.find((c) => c.matchSessionId === session.id);
 
-			const blueFinalTime = record ? Number(record.blueFinalTime) : 0;
-			const blueTimeBonus = cost ? Number(cost.blueTimeBonusCost) : 0;
-			// 0 penalty per reset
-			const blueTotalTime = blueFinalTime + blueTimeBonus;
+			const blueTotalTime = this.calculateSessionResultTotal(
+				record,
+				cost,
+				PlayerSide.BLUE,
+			);
 
-			const redFinalTime = record ? Number(record.redFinalTime) : 0;
-			const redTimeBonus = cost ? Number(cost.redTimeBonusCost) : 0;
-			const redTotalTime = redFinalTime + redTimeBonus;
+			const redTotalTime = this.calculateSessionResultTotal(
+				record,
+				cost,
+				PlayerSide.RED,
+			);
 
 			if (blueTotalTime < redTotalTime) {
 				// Blue participant of THIS session won
@@ -941,5 +972,27 @@ export class MatchService {
 		this.socketMatchService.emitToMatch(matchId, SocketEvents.MATCH_UPDATED, {
 			...updatedMatch,
 		});
+	}
+
+	private calculateSessionResultTotal(
+		record: SessionRecordEntity | undefined,
+		cost: SessionCostEntity | undefined,
+		side: PlayerSide,
+	) {
+		if (side === PlayerSide.BLUE) {
+			return (
+				(record ? Number(cost?.blueTimeBonusCost ?? 0) : 0) +
+				Math.max(0, Number(record?.blueChamber1 ?? 0)) +
+				Math.max(0, Number(record?.blueChamber2 ?? 0)) +
+				Math.max(0, Number(record?.blueChamber3 ?? 0))
+			);
+		}
+
+		return (
+			(record ? Number(cost?.redTimeBonusCost ?? 0) : 0) +
+			Math.max(0, Number(record?.redChamber1 ?? 0)) +
+			Math.max(0, Number(record?.redChamber2 ?? 0)) +
+			Math.max(0, Number(record?.redChamber3 ?? 0))
+		);
 	}
 }

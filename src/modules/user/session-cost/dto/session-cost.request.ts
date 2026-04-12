@@ -32,5 +32,5 @@ export class SessionCostRequest {
 
 	@ApiProperty()
 	@IsOptional()
-	currentTurn: number;
+	currentTurn?: number;
 }

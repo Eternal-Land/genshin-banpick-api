@@ -14,7 +14,7 @@ import {
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PlayerSide, WeaponCostUnit } from "@utils/enums";
 import { SessionCostRequest } from "./dto";
-import { LessThanOrEqual } from "typeorm";
+import { IsNull, LessThanOrEqual, MoreThanOrEqual } from "typeorm";
 import { SocketMatchService } from "@modules/socket/services";
 import { SocketEvents } from "@utils/constants";
 
@@ -281,7 +281,7 @@ export class UserSessionCostService {
 					weaponRarityCache.set(slot.weaponId, weaponRarity);
 				}
 
-				if (weaponRarity) {
+				if (weaponRarity !== null && weaponRarity !== undefined) {
 					const weaponCostKey = `${weaponRarity}:${slot.weaponRefinement}`;
 					let cachedWeaponCost = weaponCostCache.get(weaponCostKey);
 					if (!cachedWeaponCost) {
@@ -293,22 +293,42 @@ export class UserSessionCostService {
 							select: {
 								value: true,
 								unit: true,
+								upgradeLevel: true,
 							},
 						});
 
-						cachedWeaponCost = weaponCosts.reduce(
-							(acc, weaponCost) => {
-								const value = this.toNumber(weaponCost.value);
-								if (weaponCost.unit === WeaponCostUnit.SECONDS) {
-									acc.refinementCost += value;
-								} else {
-									acc.totalCost += value;
-								}
+						const isAllCostUnit =
+							weaponCosts.length > 0 &&
+							weaponCosts.every(
+								(weaponCost) => weaponCost.unit === WeaponCostUnit.COST,
+							);
 
-								return acc;
-							},
-							{ totalCost: 0, refinementCost: 0 },
-						);
+						if (isAllCostUnit) {
+							const exactCost = weaponCosts.find(
+								(weaponCost) =>
+									weaponCost.unit === WeaponCostUnit.COST &&
+									weaponCost.upgradeLevel === slot.weaponRefinement,
+							);
+
+							cachedWeaponCost = {
+								totalCost: this.toNumber(exactCost?.value),
+								refinementCost: 0,
+							};
+						} else {
+							cachedWeaponCost = weaponCosts.reduce(
+								(acc, weaponCost) => {
+									const value = this.toNumber(weaponCost.value);
+									if (weaponCost.unit === WeaponCostUnit.SECONDS) {
+										acc.refinementCost += value;
+									} else {
+										acc.totalCost += value;
+									}
+
+									return acc;
+								},
+								{ totalCost: 0, refinementCost: 0 },
+							);
+						}
 
 						weaponCostCache.set(weaponCostKey, cachedWeaponCost);
 					}
@@ -325,10 +345,16 @@ export class UserSessionCostService {
 		}
 
 		const blueMilestone = await this.costMilestoneRepo.findOne({
-			where: {
-				costFrom: LessThanOrEqual(sessionCost.blueTotalCost || 0),
-				costTo: LessThanOrEqual(sessionCost.blueTotalCost || 0),
-			},
+			where: [
+				{
+					costFrom: LessThanOrEqual(sessionCost.blueTotalCost),
+					costTo: MoreThanOrEqual(sessionCost.blueTotalCost),
+				},
+				{
+					costFrom: LessThanOrEqual(sessionCost.blueTotalCost),
+					costTo: IsNull(),
+				},
+			],
 			order: { costFrom: "DESC" },
 		});
 		if (blueMilestone) {
@@ -336,16 +362,21 @@ export class UserSessionCostService {
 			sessionCost.blueCostMilestone = blueMilestone.id;
 			sessionCost.blueTimeBonusCost =
 				this.toNumber(sessionCost.blueTotalCost) * secPerCost +
-				sessionCost.blueConstellationCost +
 				sessionCost.blueRefinementCost +
 				sessionCost.blueLevelCost;
 		}
 
 		const redMilestone = await this.costMilestoneRepo.findOne({
-			where: {
-				costFrom: LessThanOrEqual(sessionCost.redTotalCost || 0),
-				costTo: LessThanOrEqual(sessionCost.redTotalCost || 0),
-			},
+			where: [
+				{
+					costFrom: LessThanOrEqual(sessionCost.redTotalCost),
+					costTo: MoreThanOrEqual(sessionCost.redTotalCost),
+				},
+				{
+					costFrom: LessThanOrEqual(sessionCost.redTotalCost),
+					costTo: IsNull(),
+				},
+			],
 			order: { costFrom: "DESC" },
 		});
 		if (redMilestone) {
@@ -353,7 +384,6 @@ export class UserSessionCostService {
 			sessionCost.redCostMilestone = redMilestone.id;
 			sessionCost.redTimeBonusCost =
 				this.toNumber(sessionCost.redTotalCost) * secPerCost +
-				sessionCost.redConstellationCost +
 				sessionCost.redRefinementCost +
 				sessionCost.redLevelCost;
 		}
