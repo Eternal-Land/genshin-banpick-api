@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from "@nestjs/common";
+import { Controller, Delete, Get, Param, Put, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { UserService } from "./user.service";
 import { UserQuery, UserResponse } from "./dto";
@@ -20,5 +20,19 @@ export class UserController {
 			UserResponse.fromEntities(users),
 			PaginationDto.from(query.page, query.take, total),
 		);
+	}
+
+	@Delete("/:id")
+	@RequirePermission("admin.users.deactivate")
+	async deactivateUser(@Param("id") id: string) {
+		await this.userService.deactivateUser(id);
+		return BaseApiResponse.success();
+	}
+
+	@Put("/:id/reactivate")
+	@RequirePermission("admin.users.reactivate")
+	async reactivateUser(@Param("id") id: string) {
+		await this.userService.reactivateUser(id);
+		return BaseApiResponse.success();
 	}
 }

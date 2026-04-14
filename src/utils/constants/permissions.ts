@@ -26,6 +26,8 @@ export const PERMISSIONS_MAP = {
 	"admin.weapon.delete": "Delete Weapon",
 
 	"admin.users.list": "View Users List",
+	"admin.users.deactivate": "Deactivate User",
+	"admin.users.reactivate": "Reactivate User",
 
 	"admin.cost-milestone.list": "View Cost Milestones List",
 	"admin.cost-milestone.detail": "View Cost Milestone Detail",

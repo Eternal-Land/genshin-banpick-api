@@ -46,4 +46,12 @@ export class UserService {
 
 		return { users, total };
 	}
+
+	async deactivateUser(id: string) {
+		await this.accountRepo.update(id, { isActive: false });
+	}
+
+	async reactivateUser(id: string) {
+		await this.accountRepo.update(id, { isActive: true });
+	}
 }

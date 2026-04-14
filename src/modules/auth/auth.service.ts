@@ -5,7 +5,11 @@ import * as bcrypt from "bcryptjs";
 import * as jwt from "jsonwebtoken";
 import { Env } from "@utils/env";
 import { BasicLoginRequest, RegisterRequest, TokenResponse } from "./dto";
-import { AccountAlreadyExistsError, InvalidCredentialsError } from "./errors";
+import {
+	AccountAlreadyExistsError,
+	InvalidCredentialsError,
+	PermissionDeniedError,
+} from "./errors";
 import { ClsService } from "nestjs-cls";
 import { GenshinBanpickCls } from "@utils";
 import { AccountRole } from "@utils/enums";
@@ -41,7 +45,10 @@ export class AuthService implements OnModuleInit {
 
 	async register(dto: RegisterRequest) {
 		const existing = await this.accountRepo.findOne({
-			where: [{ email: dto.email }, { ingameUuid: dto.ingameUuid }],
+			where: [
+				{ email: dto.email, isActive: true },
+				{ ingameUuid: dto.ingameUuid, isActive: true },
+			],
 		});
 
 		if (existing) {
@@ -71,6 +78,10 @@ export class AuthService implements OnModuleInit {
 
 		if (!account) {
 			throw new InvalidCredentialsError();
+		}
+
+		if (!account.isActive) {
+			throw new PermissionDeniedError();
 		}
 
 		const isValidPassword = await bcrypt.compare(
