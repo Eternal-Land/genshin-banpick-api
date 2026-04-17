@@ -253,10 +253,8 @@ export class UserSessionCostService {
 					if (characterLevelCostValue > 0) {
 						if (slotSide === PlayerSide.BLUE) {
 							sessionCost.blueLevelCost += characterLevelCostValue;
-							sessionCost.blueTotalCost += characterLevelCostValue;
 						} else {
 							sessionCost.redLevelCost += characterLevelCostValue;
-							sessionCost.redTotalCost += characterLevelCostValue;
 						}
 					}
 				}
