@@ -33,9 +33,9 @@ export class CreateStaffRequest {
 	@IsStrongPassword({
 		minLength: 6,
 		minLowercase: 1,
-		minUppercase: 1,
+		minUppercase: 0,
 		minNumbers: 1,
-		minSymbols: 1,
+		minSymbols: 0,
 	})
 	password: string;
 
