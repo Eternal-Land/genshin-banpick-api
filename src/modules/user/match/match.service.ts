@@ -50,6 +50,8 @@ interface DraftAction {
 	type: "ban" | "pick";
 }
 
+const RESET_TIME_PENALTY_SECONDS = 10;
+
 const DRAFT_SEQUENCE: DraftAction[] = [
 	{ side: PlayerSide.BLUE, type: "ban" },
 	{ side: PlayerSide.RED, type: "ban" },
@@ -598,20 +600,22 @@ export class MatchService {
 		const expectedBlueFinalTime =
 			sessionRecord.blueChamber1 +
 			sessionRecord.blueChamber2 +
-			sessionRecord.blueChamber3;
+			sessionRecord.blueChamber3 +
+			sessionRecord.blueResetTimes * RESET_TIME_PENALTY_SECONDS;
 		if (sessionRecord.blueFinalTime !== expectedBlueFinalTime) {
 			throw new SessionCompletionValidationError(
-				"Blue final time must equal the sum of chamber times",
+				"Blue final time must equal the sum of chamber times plus reset penalties",
 			);
 		}
 
 		const expectedRedFinalTime =
 			sessionRecord.redChamber1 +
 			sessionRecord.redChamber2 +
-			sessionRecord.redChamber3;
+			sessionRecord.redChamber3 +
+			sessionRecord.redResetTimes * RESET_TIME_PENALTY_SECONDS;
 		if (sessionRecord.redFinalTime !== expectedRedFinalTime) {
 			throw new SessionCompletionValidationError(
-				"Red final time must equal the sum of chamber times",
+				"Red final time must equal the sum of chamber times plus reset penalties",
 			);
 		}
 	}

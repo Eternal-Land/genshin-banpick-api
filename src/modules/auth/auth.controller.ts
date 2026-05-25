@@ -1,6 +1,11 @@
 import { Body, Controller, Post, Res } from "@nestjs/common";
 import { AuthService } from "./auth.service";
-import { BasicLoginRequest, RegisterRequest, TokenResponse } from "./dto";
+import {
+	BasicLoginRequest,
+	ForgotPasswordRequest,
+	RegisterRequest,
+	TokenResponse,
+} from "./dto";
 import {
 	BaseApiResponse,
 	Env,
@@ -20,6 +25,13 @@ export class AuthController {
 	async register(@Body() dto: RegisterRequest) {
 		await this.authService.register(dto);
 		return BaseApiResponse.success();
+	}
+
+	@Post("/forgot-password")
+	@SwaggerBaseApiMessageResponse()
+	async forgotPassword(@Body() dto: ForgotPasswordRequest) {
+		await this.authService.forgotPassword(dto);
+		return BaseApiResponse.success(undefined, "Password updated successfully");
 	}
 
 	@Post("/login/basic")
