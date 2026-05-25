@@ -4,15 +4,22 @@ import { Builder } from "builder-pattern";
 import * as bcrypt from "bcryptjs";
 import * as jwt from "jsonwebtoken";
 import { Env } from "@utils/env";
-import { BasicLoginRequest, RegisterRequest, TokenResponse } from "./dto";
+import {
+	BasicLoginRequest,
+	ForgotPasswordRequest,
+	RegisterRequest,
+	TokenResponse,
+} from "./dto";
 import {
 	AccountAlreadyExistsError,
 	InvalidCredentialsError,
 	PermissionDeniedError,
+	WrongEmailOrIngameUidError,
 } from "./errors";
 import { ClsService } from "nestjs-cls";
 import { GenshinBanpickCls } from "@utils";
 import { AccountRole } from "@utils/enums";
+import { Transactional } from "typeorm-transactional";
 
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -43,6 +50,7 @@ export class AuthService implements OnModuleInit {
 		await this.initAdminAccount();
 	}
 
+	@Transactional()
 	async register(dto: RegisterRequest) {
 		const existing = await this.accountRepo.findOne({
 			where: [
@@ -66,6 +74,28 @@ export class AuthService implements OnModuleInit {
 		});
 
 		await this.accountRepo.save(account);
+	}
+
+	@Transactional()
+	async forgotPassword(dto: ForgotPasswordRequest) {
+		const account = await this.accountRepo.findOne({
+			where: {
+				email: dto.email,
+				ingameUuid: dto.ingameUuid,
+				isActive: true,
+			},
+		});
+
+		if (!account) {
+			throw new WrongEmailOrIngameUidError();
+		}
+
+		const hashedPassword = await bcrypt.hash(dto.password, 10);
+
+		await this.accountRepo.update(
+			{ id: account.id },
+			{ password: hashedPassword },
+		);
 	}
 
 	async loginBasic(dto: BasicLoginRequest): Promise<TokenResponse> {

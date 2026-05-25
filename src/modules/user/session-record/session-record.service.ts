@@ -12,6 +12,8 @@ import { ClsService } from "nestjs-cls";
 import { In } from "typeorm";
 import { SaveSessionRecordRequest } from "./dto";
 
+const RESET_TIME_PENALTY_SECONDS = 10;
+
 @Injectable()
 export class UserSessionRecordService {
 	constructor(
@@ -71,19 +73,33 @@ export class UserSessionRecordService {
 			const redChamber1 = toChamberTotal(dto.redChamber1);
 			const redChamber2 = isRealtimeMatch ? 0 : toChamberTotal(dto.redChamber2);
 			const redChamber3 = isRealtimeMatch ? 0 : toChamberTotal(dto.redChamber3);
+			const blueResetTimes = isRealtimeMatch
+				? 0
+				: Math.max(0, Math.floor(dto.blueResetTimes));
+			const redResetTimes = isRealtimeMatch
+				? 0
+				: Math.max(0, Math.floor(dto.redResetTimes));
 
 			const payload = {
 				matchSessionId,
 				blueChamber1,
 				blueChamber2,
 				blueChamber3,
-				blueResetTimes: dto.blueResetTimes,
-				blueFinalTime: blueChamber1 + blueChamber2 + blueChamber3,
+				blueResetTimes,
+				blueFinalTime:
+					blueChamber1 +
+					blueChamber2 +
+					blueChamber3 +
+					blueResetTimes * RESET_TIME_PENALTY_SECONDS,
 				redChamber1,
 				redChamber2,
 				redChamber3,
-				redResetTimes: dto.redResetTimes,
-				redFinalTime: redChamber1 + redChamber2 + redChamber3,
+				redResetTimes,
+				redFinalTime:
+					redChamber1 +
+					redChamber2 +
+					redChamber3 +
+					redResetTimes * RESET_TIME_PENALTY_SECONDS,
 			};
 
 			const primaryRecord = existedRecords[0];

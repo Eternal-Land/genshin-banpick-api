@@ -29,10 +29,10 @@ export class BaseApiResponse<T = any> {
 	@ApiProperty({ required: false })
 	next?: any;
 
-	static success<T>(data?: T) {
+	static success<T>(data?: T, message = "Success") {
 		return Builder(BaseApiResponse)
 			.code(ErrorCode.OK)
-			.message("Success")
+			.message(message)
 			.data(data)
 			.build();
 	}
