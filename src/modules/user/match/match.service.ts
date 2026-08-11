@@ -407,9 +407,16 @@ export class MatchService {
 	}
 
 	async startMatch(matchId: string) {
-		await this.findOne(matchId, { isHost: true, isNotStarted: true });
+		const match = await this.findOne(matchId, {
+			isHost: true,
+			isNotStarted: true,
+		});
 		await this.matchRepo.update(matchId, { status: MatchStatus.LIVE });
-		this.socketMatchService.emitToMatch(matchId, SocketEvents.MATCH_STARTED);
+		this.socketMatchService.emitToMatch(
+			matchId,
+			SocketEvents.MATCH_STARTED,
+			match.type,
+		);
 	}
 
 	private getPlayerSide(match: MatchEntity, playerId: string) {
