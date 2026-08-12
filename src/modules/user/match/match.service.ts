@@ -1,6 +1,7 @@
 import {
 	AccountCharacterRepository,
 	BanPickSlotRepository,
+	CharacterRepository,
 	MatchRepository,
 	MatchSessionRepository,
 	MatchStateRepository,
@@ -51,6 +52,7 @@ interface DraftAction {
 }
 
 const RESET_TIME_PENALTY_SECONDS = 10;
+const THREE_VS_THREE_PICKS_PER_SIDE = 24;
 
 const DRAFT_SEQUENCE: DraftAction[] = [
 	{ side: PlayerSide.BLUE, type: "ban" },
@@ -77,6 +79,49 @@ const DRAFT_SEQUENCE: DraftAction[] = [
 	{ side: PlayerSide.RED, type: "pick" },
 ];
 
+const createThreeVsThreeDraftSequence = (
+	picksPerSide: number,
+): DraftAction[] => {
+	const sequence: DraftAction[] = [];
+	let blueRemaining = picksPerSide;
+	let redRemaining = picksPerSide;
+
+	if (blueRemaining > 0) {
+		sequence.push({ side: PlayerSide.BLUE, type: "pick" });
+		blueRemaining -= 1;
+	}
+
+	if (redRemaining > 0) {
+		redRemaining -= 1;
+	}
+
+	while (blueRemaining > 0 || redRemaining > 0) {
+		const redBatch = Math.min(2, redRemaining);
+		for (let index = 0; index < redBatch; index += 1) {
+			sequence.push({ side: PlayerSide.RED, type: "pick" });
+			redRemaining -= 1;
+		}
+
+		const blueBatch = Math.min(2, blueRemaining);
+		for (let index = 0; index < blueBatch; index += 1) {
+			sequence.push({ side: PlayerSide.BLUE, type: "pick" });
+			blueRemaining -= 1;
+		}
+
+		if (redBatch === 0 && blueBatch === 0) {
+			break;
+		}
+	}
+
+	sequence.push({ side: PlayerSide.RED, type: "pick" });
+
+	return sequence;
+};
+
+const THREE_VS_THREE_DRAFT_SEQUENCE = createThreeVsThreeDraftSequence(
+	THREE_VS_THREE_PICKS_PER_SIDE,
+);
+
 interface FindOneOptions {
 	isHost?: boolean;
 	isNotStarted?: boolean;
@@ -93,10 +138,19 @@ export class MatchService {
 		private readonly matchSessionRepo: MatchSessionRepository,
 		private readonly banPickSlotRepo: BanPickSlotRepository,
 		private readonly accountCharacterRepo: AccountCharacterRepository,
+		private readonly characterRepo: CharacterRepository,
 		private readonly weaponRepo: WeaponRepository,
 		private readonly sessionRecordRepo: SessionRecordRepository,
 		private readonly sessionCostRepo: SessionCostRepository,
 	) {}
+
+	private getDraftSequence(matchType: MatchType) {
+		if (matchType === MatchType.THREE_VS_THREE) {
+			return THREE_VS_THREE_DRAFT_SEQUENCE;
+		}
+
+		return DRAFT_SEQUENCE;
+	}
 
 	@Transactional()
 	async createOne(dto: CreateMatchRequest) {
@@ -296,6 +350,7 @@ export class MatchService {
 		match: MatchEntity,
 		matchState: MatchStateEntity,
 	) {
+		const draftSequence = this.getDraftSequence(match.type);
 		const currentSession = await this.getCurrentMatchSession(match, matchState);
 		const slots = await this.banPickSlotRepo.find({
 			where: {
@@ -319,10 +374,10 @@ export class MatchService {
 				matchState.blueSelectedChars.length +
 				matchState.redBanChars.length +
 				matchState.redSelectedChars.length,
-			DRAFT_SEQUENCE.length,
+			draftSequence.length,
 		);
 
-		const nextAction = DRAFT_SEQUENCE[draftStep];
+		const nextAction = draftSequence[draftStep];
 		if (nextAction && matchState.currentTurn !== nextAction.side) {
 			matchState.currentTurn = nextAction.side;
 		}
@@ -499,6 +554,7 @@ export class MatchService {
 		matchSessionId: number,
 		matchType: MatchType,
 	) {
+		const draftSequence = this.getDraftSequence(matchType);
 		const lockedSlots = await this.banPickSlotRepo.find({
 			where: {
 				matchSessionId,
@@ -515,14 +571,14 @@ export class MatchService {
 			},
 		});
 
-		if (lockedSlots.length !== DRAFT_SEQUENCE.length) {
+		if (lockedSlots.length !== draftSequence.length) {
 			throw new SessionCompletionValidationError(
 				"Cannot complete session before ban/pick draft is fully completed",
 			);
 		}
 
 		lockedSlots.forEach((slot, index) => {
-			const expectedAction = DRAFT_SEQUENCE[index];
+			const expectedAction = draftSequence[index];
 			if (!expectedAction) {
 				throw new SessionCompletionValidationError(
 					"Draft contains unexpected extra action",
@@ -683,9 +739,15 @@ export class MatchService {
 		});
 	}
 
-	@Transactional()
-	async pickChar(matchId: string, charId: number) {
-		const playerId = this.cls.get("profile.id");
+	private async pickCharByPlayer(
+		matchId: string,
+		charId: number,
+		playerId: string,
+	) {
+		if (!playerId) {
+			throw new MatchNotFoundError();
+		}
+
 		const match = await this.findOne(matchId);
 		if ([MatchStatus.COMPLETED, MatchStatus.CANCELLED].includes(match.status)) {
 			throw new MatchAlreadyCompletedError();
@@ -699,15 +761,28 @@ export class MatchService {
 
 		this.ensureCorrectTurn(matchState, playerSide);
 
-		const selectedAccountCharacter = await this.accountCharacterRepo.findOne({
-			where: {
-				characterId: charId,
-				accountId: playerId,
-			},
-		});
+		if (match.type === MatchType.THREE_VS_THREE) {
+			const selectedCharacter = await this.characterRepo.findOne({
+				where: {
+					id: charId,
+					isActive: true,
+				},
+			});
 
-		if (!selectedAccountCharacter) {
-			throw new AccountCharacterNotFoundError();
+			if (!selectedCharacter) {
+				throw new AccountCharacterNotFoundError();
+			}
+		} else {
+			const selectedAccountCharacter = await this.accountCharacterRepo.findOne({
+				where: {
+					characterId: charId,
+					accountId: playerId,
+				},
+			});
+
+			if (!selectedAccountCharacter) {
+				throw new AccountCharacterNotFoundError();
+			}
 		}
 
 		await this.ensureCharacterNotUsedInSession(matchSession.id, charId);
@@ -720,6 +795,17 @@ export class MatchService {
 			playerId,
 		);
 		await this.saveAndBroadcastMatchState(matchId, match);
+	}
+
+	@Transactional()
+	async pickChar(matchId: string, charId: number) {
+		const playerId = this.cls.get("profile.id");
+		await this.pickCharByPlayer(matchId, charId, playerId);
+	}
+
+	@Transactional()
+	async pickCharFromSocket(matchId: string, charId: number, playerId: string) {
+		await this.pickCharByPlayer(matchId, charId, playerId);
 	}
 
 	@Transactional()
