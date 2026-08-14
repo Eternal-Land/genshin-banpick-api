@@ -23,6 +23,7 @@ import {
 	MatchQuery,
 	MatchResponse,
 	MatchStateResponse,
+	UpdateSlotBuildRequest,
 } from "./dto";
 import { MatchService } from "./match.service";
 
@@ -124,6 +125,23 @@ export class MatchController {
 		@Param("weaponRefinement", ParseIntPipe) weaponRefinement: number,
 	) {
 		await this.matchService.pickWeapon(id, charId, weaponId, weaponRefinement);
+		return BaseApiResponse.success();
+	}
+
+	@Put(":id/slot-build")
+	@SwaggerBaseApiMessageResponse()
+	@ApiBearerAuth()
+	async updateSlotBuild(
+		@Param("id", ParseUUIDPipe) id: string,
+		@Body() dto: UpdateSlotBuildRequest,
+	) {
+		await this.matchService.updateSlotBuild(
+			id,
+			dto.teamOrder,
+			dto.characterId,
+			dto.characterConstellation,
+			dto.weaponRefinement,
+		);
 		return BaseApiResponse.success();
 	}
 }

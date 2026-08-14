@@ -288,6 +288,8 @@ export class MatchService {
 		slots: Array<{
 			slotType: string;
 			matchSide: string;
+			teamOrder: number;
+			turnIndex: number;
 			characterId: number;
 			weaponId: number | null;
 			weaponRefinement: number | null;
@@ -302,20 +304,35 @@ export class MatchService {
 		const redSelectedWeapons: string[] = [];
 		const redSelectedWeaponRefinements: number[] = [];
 
-		slots.forEach((slot) => {
+		const banSlots = slots.filter((slot) => slot.slotType === "BAN");
+		const pickSlots = slots
+			.filter((slot) => slot.slotType === "PICK")
+			.sort((left, right) => {
+				if (left.matchSide !== right.matchSide) {
+					return left.matchSide.localeCompare(right.matchSide);
+				}
+
+				if (left.teamOrder !== right.teamOrder) {
+					return left.teamOrder - right.teamOrder;
+				}
+
+				return left.turnIndex - right.turnIndex;
+			});
+
+		banSlots.forEach((slot) => {
+			const characterId = String(slot.characterId);
+			if (slot.matchSide === "BLUE") {
+				blueBanChars.push(characterId);
+			} else {
+				redBanChars.push(characterId);
+			}
+		});
+
+		pickSlots.forEach((slot) => {
 			const characterId = String(slot.characterId);
 			const weaponId = slot.weaponId ? String(slot.weaponId) : "";
 			const weaponRefinement =
 				typeof slot.weaponRefinement === "number" ? slot.weaponRefinement : 0;
-
-			if (slot.slotType === "BAN") {
-				if (slot.matchSide === "BLUE") {
-					blueBanChars.push(characterId);
-				} else {
-					redBanChars.push(characterId);
-				}
-				return;
-			}
 
 			if (slot.matchSide === "BLUE") {
 				blueSelectedChars.push(characterId);
@@ -361,6 +378,8 @@ export class MatchService {
 			select: {
 				slotType: true,
 				matchSide: true,
+				teamOrder: true,
+				turnIndex: true,
 				characterId: true,
 				weaponId: true,
 				weaponRefinement: true,
@@ -809,6 +828,73 @@ export class MatchService {
 	}
 
 	@Transactional()
+	async swapBanPickSlotTeamOrderFromSocket(
+		matchId: string,
+		side: "blue" | "red",
+		sourceTeamOrder: number,
+		targetTeamOrder: number,
+		playerId: string,
+	) {
+		const match = await this.findOne(matchId);
+		if ([MatchStatus.COMPLETED, MatchStatus.CANCELLED].includes(match.status)) {
+			throw new MatchAlreadyCompletedError();
+		}
+
+		const matchState = await this.matchStateRepo.findOneOrCreate(matchId);
+		const matchSession = await this.getCurrentMatchSession(match, matchState);
+		const playerSide = this.getPlayerSide(match, playerId);
+		if (playerSide === null) {
+			throw new MatchNotFoundError();
+		}
+
+		const normalizedPayloadSide =
+			side === "blue" ? PlayerSide.BLUE : PlayerSide.RED;
+		if (playerSide !== normalizedPayloadSide) {
+			throw new BadRequestException("Cannot reorder the opponent side slots");
+		}
+
+		if (sourceTeamOrder === targetTeamOrder) {
+			return;
+		}
+
+		const normalizedSide = this.normalizePlayerSide(normalizedPayloadSide);
+		const slotsToSwap = await this.banPickSlotRepo.find({
+			where: {
+				matchSessionId: matchSession.id,
+				matchSide: normalizedSide,
+				slotType: "PICK",
+				slotStatus: "LOCKED",
+				teamOrder: In([sourceTeamOrder, targetTeamOrder]),
+			},
+			select: {
+				id: true,
+				teamOrder: true,
+			},
+		});
+
+		if (slotsToSwap.length !== 2) {
+			throw new BadRequestException("Invalid team order swap payload");
+		}
+
+		const sourceSlot = slotsToSwap.find(
+			(slot) => slot.teamOrder === sourceTeamOrder,
+		);
+		const targetSlot = slotsToSwap.find(
+			(slot) => slot.teamOrder === targetTeamOrder,
+		);
+
+		if (!sourceSlot || !targetSlot) {
+			throw new BadRequestException("Invalid team order swap payload");
+		}
+
+		sourceSlot.teamOrder = targetTeamOrder;
+		targetSlot.teamOrder = sourceTeamOrder;
+
+		await this.banPickSlotRepo.save([sourceSlot, targetSlot]);
+		await this.saveAndBroadcastMatchState(matchId, match);
+	}
+
+	@Transactional()
 	async banChar(matchId: string, charId: number) {
 		const playerId = this.cls.get("profile.id");
 		const match = await this.findOne(matchId);
@@ -940,6 +1026,55 @@ export class MatchService {
 			SocketEvents.UPDATE_MATCH_SESSION,
 			{ matchSessionId: savedMatchState.currentSession },
 		);
+	}
+
+	@Transactional()
+	async updateSlotBuild(
+		matchId: string,
+		teamOrder: number,
+		characterId: number,
+		characterConstellation: number,
+		weaponRefinement: number,
+	) {
+		const playerId = this.cls.get("profile.id");
+		const match = await this.findOne(matchId);
+		if ([MatchStatus.COMPLETED, MatchStatus.CANCELLED].includes(match.status)) {
+			throw new MatchAlreadyCompletedError();
+		}
+
+		if (teamOrder <= 0) {
+			throw new BadRequestException("Invalid team order");
+		}
+
+		if (characterConstellation < 0 || weaponRefinement < 0) {
+			throw new BadRequestException("Invalid slot build values");
+		}
+
+		const matchState = await this.matchStateRepo.findOneOrCreate(matchId);
+		const matchSession = await this.getCurrentMatchSession(match, matchState);
+		const playerSide = this.getPlayerSide(match, playerId);
+		if (playerSide === null) {
+			throw new MatchNotFoundError();
+		}
+
+		const normalizedSide = this.normalizePlayerSide(playerSide);
+		const slot = await this.banPickSlotRepo.findOne({
+			where: {
+				matchSessionId: matchSession.id,
+				matchSide: normalizedSide,
+				slotType: "PICK",
+				slotStatus: "LOCKED",
+				teamOrder,
+			},
+		});
+
+		if (!slot || slot.characterId !== characterId) {
+			throw new BadRequestException("Invalid slot build target");
+		}
+
+		slot.characterConstellation = characterConstellation;
+		slot.weaponRefinement = weaponRefinement;
+		await this.banPickSlotRepo.save(slot);
 	}
 
 	@Transactional()

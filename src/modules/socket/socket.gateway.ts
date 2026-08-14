@@ -45,6 +45,14 @@ type UpdateBanPickSlotPayload = {
 	updatedBy?: string;
 };
 
+type SwapBanPickSlotPositionPayload = {
+	matchId?: string;
+	side?: "blue" | "red";
+	sourceTeamOrder?: number;
+	targetTeamOrder?: number;
+	updatedBy?: string;
+};
+
 const SESSION_RECORD_FIELDS: Array<keyof SaveSessionRecordRequest> = [
 	"blueChamber1",
 	"blueChamber2",
@@ -192,6 +200,57 @@ export class SocketGateway
 			{
 				side: payload.side,
 				character: payload.character,
+				updatedBy: payload.updatedBy ?? profileId,
+			},
+		);
+
+		return { ok: true };
+	}
+
+	@SubscribeMessage(SocketEvents.SWAP_BAN_PICK_SLOT_POSITION)
+	async handleSwapBanPickSlotPosition(
+		client: Socket,
+		payload: SwapBanPickSlotPositionPayload,
+	) {
+		if (
+			!payload?.matchId ||
+			!payload?.side ||
+			!Number.isInteger(payload?.sourceTeamOrder) ||
+			!Number.isInteger(payload?.targetTeamOrder)
+		) {
+			return { ok: false };
+		}
+
+		const profileId = client.data?.profile?.id;
+		if (!profileId) {
+			throw new WsException("Unauthorized");
+		}
+
+		const sourceTeamOrder = Number(payload.sourceTeamOrder);
+		const targetTeamOrder = Number(payload.targetTeamOrder);
+		if (
+			sourceTeamOrder <= 0 ||
+			targetTeamOrder <= 0 ||
+			sourceTeamOrder === targetTeamOrder
+		) {
+			return { ok: false };
+		}
+
+		await this.matchService.swapBanPickSlotTeamOrderFromSocket(
+			payload.matchId,
+			payload.side,
+			sourceTeamOrder,
+			targetTeamOrder,
+			profileId,
+		);
+
+		this.socketMatchService.emitToMatch(
+			payload.matchId,
+			SocketEvents.SWAP_BAN_PICK_SLOT_POSITION,
+			{
+				side: payload.side,
+				sourceTeamOrder,
+				targetTeamOrder,
 				updatedBy: payload.updatedBy ?? profileId,
 			},
 		);
