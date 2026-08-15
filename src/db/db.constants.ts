@@ -18,6 +18,7 @@ export const TableNames = {
 	BanPickSlot: "ban_pick_slot",
 	SessionCost: "session_cost",
 	SessionRecord: "session_record",
+	TeamCost: "team_cost",
 };
 
 export const ColumnNames = {
@@ -153,10 +154,11 @@ export const ColumnNames = {
 		matchSide: "match_side",
 		slotStatus: "slot_status",
 		characterId: "character_id",
+		characterConstellation: "character_constellation",
 		weaponId: "weapon_id",
 		weaponRefinement: "weapon_refinement",
 		selectedByAccountId: "selected_by_account_id",
-		locketAt: "locked_at",
+		lockedAt: "locked_at",
 		weaponSelectedAt: "weapon_selected_at",
 	},
 	SessionCost: {
@@ -188,6 +190,19 @@ export const ColumnNames = {
 		redChamber3: "red_chamber_3",
 		redResetTimes: "red_reset_times",
 		redFinalTime: "red_final_time",
+	},
+	TeamCost: {
+		id: "team_cost_id",
+		matchSessionId: "match_session_id",
+		sessionCostId: "session_cost_id",
+		teamSide: "team_side",
+		chamberIndex: "chamber_index",
+		accountId: "account_id",
+		totalCharacterConstellationCost: "total_character_constellation_cost",
+		totalWeaponRefinementCost: "total_weapon_refinement_cost",
+		totalCharacterLevelCost: "total_character_level_cost",
+		totalChamberTimeBonus: "total_chamber_time_bonus",
+		isUsedStar: "is_used_star",
 	},
 };
 

@@ -28,6 +28,7 @@ import { CharacterLevelCostModule } from "@modules/admin/character-level-cost/ch
 import { UserSessionRecordModule } from "@modules/user/session-record";
 import { UserCharacterCostModule } from "@modules/user/character-cost";
 import { UserWeaponCostModule } from "@modules/user/weapon-cost";
+import { UserSessionStateModule } from "@modules/user/session-state";
 
 @Module({
 	imports: [
@@ -62,6 +63,7 @@ import { UserWeaponCostModule } from "@modules/user/weapon-cost";
 		CronModule,
 		UserSessionCostModule,
 		UserSessionRecordModule,
+		UserSessionStateModule,
 		UserCharacterCostModule,
 		UserWeaponCostModule,
 	],

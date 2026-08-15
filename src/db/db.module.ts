@@ -20,6 +20,7 @@ import {
 	BanPickSlotRepository,
 	SessionCostRepository,
 	SessionRecordRepository,
+	TeamCostRepository,
 } from "./repositories";
 import { CharacterLevelCostRepository } from "./repositories/character-level-cost.repository";
 
@@ -41,6 +42,7 @@ const repositories = [
 	BanPickSlotRepository,
 	SessionCostRepository,
 	SessionRecordRepository,
+	TeamCostRepository,
 	CharacterLevelCostRepository,
 ];
 

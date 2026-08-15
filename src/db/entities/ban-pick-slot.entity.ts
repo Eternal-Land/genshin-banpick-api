@@ -54,6 +54,13 @@ export class BanPickSlotEntity {
 	@JoinColumn({ name: ColumnNames.BanPickSlot.characterId })
 	character: CharacterEntity;
 
+	@Column({
+		name: ColumnNames.BanPickSlot.characterConstellation,
+		type: "int",
+		nullable: true,
+	})
+	characterConstellation: number;
+
 	@Column({ name: ColumnNames.BanPickSlot.weaponId, nullable: true })
 	weaponId: number;
 
@@ -82,7 +89,7 @@ export class BanPickSlotEntity {
 	selectedByAccount: AccountEntity;
 
 	@Column({
-		name: ColumnNames.BanPickSlot.locketAt,
+		name: ColumnNames.BanPickSlot.lockedAt,
 		type: "datetime",
 		nullable: true,
 	})
