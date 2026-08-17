@@ -31,6 +31,7 @@ type SaveMatchTimerInputsPayload = {
 type UpdateBanPickSlotPayload = {
 	matchId?: string;
 	side?: "blue" | "red";
+	type?: "ban" | "pick";
 	character?: {
 		id?: string;
 		name?: string;
@@ -188,11 +189,19 @@ export class SocketGateway
 			throw new WsException("Invalid character id");
 		}
 
-		await this.matchService.pickCharFromSocket(
-			payload.matchId,
-			characterId,
-			profileId,
-		);
+		if (payload.type === "ban") {
+			await this.matchService.banCharFromSocket(
+				payload.matchId,
+				characterId,
+				profileId,
+			);
+		} else {
+			await this.matchService.pickCharFromSocket(
+				payload.matchId,
+				characterId,
+				profileId,
+			);
+		}
 
 		this.socketMatchService.emitToMatch(
 			payload.matchId,

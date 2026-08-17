@@ -53,6 +53,7 @@ interface DraftAction {
 
 const RESET_TIME_PENALTY_SECONDS = 10;
 const THREE_VS_THREE_PICKS_PER_SIDE = 24;
+const THREE_VS_THREE_BANS_PER_SIDE = 1;
 
 const DRAFT_SEQUENCE: DraftAction[] = [
 	{ side: PlayerSide.BLUE, type: "ban" },
@@ -79,46 +80,41 @@ const DRAFT_SEQUENCE: DraftAction[] = [
 	{ side: PlayerSide.RED, type: "pick" },
 ];
 
-const createThreeVsThreeDraftSequence = (
+/**
+ * Creates the 3v3 draft sequence.
+ * Pattern: Blue ban, Red ban, then Blue pick 1, Red pick 2,
+ * alternating Blue pick 2 and Red pick 2, and ending with Blue pick 1.
+ */
+const createAlternatingBanPickDraftSequence = (
+	bansPerSide: number,
 	picksPerSide: number,
 ): DraftAction[] => {
 	const sequence: DraftAction[] = [];
-	let blueRemaining = picksPerSide;
-	let redRemaining = picksPerSide;
 
-	if (blueRemaining > 0) {
-		sequence.push({ side: PlayerSide.BLUE, type: "pick" });
-		blueRemaining -= 1;
+	for (let i = 0; i < bansPerSide; i += 1) {
+		sequence.push({ side: PlayerSide.BLUE, type: "ban" });
+		sequence.push({ side: PlayerSide.RED, type: "ban" });
 	}
 
-	if (redRemaining > 0) {
-		redRemaining -= 1;
-	}
-
-	while (blueRemaining > 0 || redRemaining > 0) {
-		const redBatch = Math.min(2, redRemaining);
-		for (let index = 0; index < redBatch; index += 1) {
-			sequence.push({ side: PlayerSide.RED, type: "pick" });
-			redRemaining -= 1;
-		}
-
-		const blueBatch = Math.min(2, blueRemaining);
-		for (let index = 0; index < blueBatch; index += 1) {
-			sequence.push({ side: PlayerSide.BLUE, type: "pick" });
-			blueRemaining -= 1;
-		}
-
-		if (redBatch === 0 && blueBatch === 0) {
-			break;
-		}
-	}
-
+	sequence.push({ side: PlayerSide.BLUE, type: "pick" });
 	sequence.push({ side: PlayerSide.RED, type: "pick" });
+	sequence.push({ side: PlayerSide.RED, type: "pick" });
+
+	const doublePickRounds = (picksPerSide - 2) / 2;
+	for (let i = 0; i < doublePickRounds; i += 1) {
+		sequence.push({ side: PlayerSide.BLUE, type: "pick" });
+		sequence.push({ side: PlayerSide.BLUE, type: "pick" });
+		sequence.push({ side: PlayerSide.RED, type: "pick" });
+		sequence.push({ side: PlayerSide.RED, type: "pick" });
+	}
+
+	sequence.push({ side: PlayerSide.BLUE, type: "pick" });
 
 	return sequence;
 };
 
-const THREE_VS_THREE_DRAFT_SEQUENCE = createThreeVsThreeDraftSequence(
+const THREE_VS_THREE_DRAFT_SEQUENCE = createAlternatingBanPickDraftSequence(
+	THREE_VS_THREE_BANS_PER_SIDE,
 	THREE_VS_THREE_PICKS_PER_SIDE,
 );
 
@@ -328,8 +324,14 @@ export class MatchService {
 			}
 		});
 
+		const bannedCharacterIds = new Set([...blueBanChars, ...redBanChars]);
+
 		pickSlots.forEach((slot) => {
 			const characterId = String(slot.characterId);
+			if (bannedCharacterIds.has(characterId)) {
+				return;
+			}
+
 			const weaponId = slot.weaponId ? String(slot.weaponId) : "";
 			const weaponRefinement =
 				typeof slot.weaponRefinement === "number" ? slot.weaponRefinement : 0;
@@ -741,6 +743,7 @@ export class MatchService {
 				where: {
 					matchSessionId,
 					matchSide: normalizedSide,
+					slotType,
 				},
 			}),
 		]);
@@ -820,6 +823,36 @@ export class MatchService {
 	async pickChar(matchId: string, charId: number) {
 		const playerId = this.cls.get("profile.id");
 		await this.pickCharByPlayer(matchId, charId, playerId);
+	}
+
+	@Transactional()
+	async banCharFromSocket(matchId: string, charId: number, playerId: string) {
+		if (!playerId) {
+			throw new MatchNotFoundError();
+		}
+
+		const match = await this.findOne(matchId);
+		if ([MatchStatus.COMPLETED, MatchStatus.CANCELLED].includes(match.status)) {
+			throw new MatchAlreadyCompletedError();
+		}
+		const matchState = await this.matchStateRepo.findOneOrCreate(matchId);
+		const matchSession = await this.getCurrentMatchSession(match, matchState);
+		const playerSide = this.getPlayerSide(match, playerId);
+		if (playerSide === null) {
+			throw new MatchNotFoundError();
+		}
+
+		this.ensureCorrectTurn(matchState, playerSide);
+		await this.ensureCharacterNotUsedInSession(matchSession.id, charId);
+
+		await this.createBanPickSlot(
+			matchSession.id,
+			playerSide,
+			"BAN",
+			charId,
+			playerId,
+		);
+		await this.saveAndBroadcastMatchState(matchId, match);
 	}
 
 	@Transactional()
