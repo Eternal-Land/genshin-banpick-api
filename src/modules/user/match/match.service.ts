@@ -1,6 +1,7 @@
 import {
 	AccountCharacterRepository,
 	BanPickSlotRepository,
+	CharacterCostRepository,
 	CharacterRepository,
 	MatchRepository,
 	MatchSessionRepository,
@@ -8,6 +9,7 @@ import {
 	SessionCostRepository,
 	SessionRecordRepository,
 	WeaponRepository,
+	TeamCostRepository,
 } from "@db/repositories";
 import {
 	MatchEntity,
@@ -43,7 +45,7 @@ import {
 } from "./errors";
 import { SocketMatchService } from "@modules/socket/services";
 import { SocketEvents } from "@utils/constants";
-import { In, Not } from "typeorm";
+import { Between, In, Not } from "typeorm";
 import { UserSessionCostService } from "../session-cost";
 
 interface DraftAction {
@@ -54,6 +56,10 @@ interface DraftAction {
 const RESET_TIME_PENALTY_SECONDS = 10;
 const THREE_VS_THREE_PICKS_PER_SIDE = 24;
 const THREE_VS_THREE_BANS_PER_SIDE = 1;
+const CHAMBER_SLOT_COUNT = 8;
+const CHAMBER_CONSTELLATION_COST_MULTIPLIER = 5;
+const CHAMBER_REFINEMENT_COST_MULTIPLIER = 2;
+const CHAMBER_STAR_TIME_BONUS = -15;
 
 const DRAFT_SEQUENCE: DraftAction[] = [
 	{ side: PlayerSide.BLUE, type: "ban" },
@@ -138,6 +144,8 @@ export class MatchService {
 		private readonly weaponRepo: WeaponRepository,
 		private readonly sessionRecordRepo: SessionRecordRepository,
 		private readonly sessionCostRepo: SessionCostRepository,
+		private readonly teamCostRepo: TeamCostRepository,
+		private readonly characterCostRepo: CharacterCostRepository,
 	) {}
 
 	private getDraftSequence(matchType: MatchType) {
@@ -1068,8 +1076,129 @@ export class MatchService {
 		characterId: number,
 		characterConstellation: number,
 		weaponRefinement: number,
+		characterLevel: number,
 	) {
 		const playerId = this.cls.get("profile.id");
+		await this.updateSlotBuildByPlayer(
+			matchId,
+			teamOrder,
+			characterId,
+			characterConstellation,
+			weaponRefinement,
+			characterLevel,
+			playerId,
+		);
+	}
+
+	@Transactional()
+	async updateSlotBuildFromSocket(
+		matchId: string,
+		side: "blue" | "red",
+		teamOrder: number,
+		characterId: number,
+		characterConstellation: number,
+		weaponRefinement: number,
+		characterLevel: number,
+		playerId: string,
+	) {
+		await this.updateSlotBuildByPlayer(
+			matchId,
+			teamOrder,
+			characterId,
+			characterConstellation,
+			weaponRefinement,
+			characterLevel,
+			playerId,
+			side,
+		);
+	}
+
+	@Transactional()
+	async updateTeamCostFromSocket(
+		matchId: string,
+		teamSide: "blue" | "red",
+		chamberIndex: number,
+		accountId: string,
+		isUsedStar: boolean,
+		playerId: string,
+	) {
+		const match = await this.findOne(matchId);
+		if ([MatchStatus.COMPLETED, MatchStatus.CANCELLED].includes(match.status)) {
+			throw new MatchAlreadyCompletedError();
+		}
+
+		if (chamberIndex < 1 || chamberIndex > 3) {
+			throw new BadRequestException("Invalid chamber index");
+		}
+
+		const expectedSide =
+			teamSide === "blue" ? match.bluePlayerId : match.redPlayerId;
+		if (expectedSide !== playerId) {
+			throw new BadRequestException("Cannot update the opponent team cost");
+		}
+
+		const matchState = await this.matchStateRepo.findOneOrCreate(matchId);
+		const matchSession = await this.getCurrentMatchSession(match, matchState);
+		const sessionCost = await this.sessionCostRepo.findOne({
+			where: { matchSessionId: matchSession.id },
+		});
+
+		if (!sessionCost) {
+			throw new BadRequestException("Session cost not found");
+		}
+
+		const normalizedSide =
+			teamSide === "blue" ? PlayerSide.BLUE : PlayerSide.RED;
+		const teamCost = await this.teamCostRepo.findOne({
+			where: {
+				matchSessionId: matchSession.id,
+				sessionCostId: sessionCost.id,
+				teamSide: normalizedSide,
+				chamberIndex,
+			},
+		});
+
+		const savedTeamCost =
+			teamCost ??
+			this.teamCostRepo.create({
+				matchSessionId: matchSession.id,
+				sessionCostId: sessionCost.id,
+				teamSide: normalizedSide,
+				chamberIndex,
+				accountId,
+				totalCharacterConstellationCost: 0,
+				totalWeaponRefinementCost: 0,
+				totalCharacterLevelCost: 0,
+				totalChamberTimeBonus: 0,
+				isUsedStar,
+			});
+
+		if (teamCost) {
+			teamCost.accountId = accountId;
+			teamCost.isUsedStar = isUsedStar;
+		}
+
+		await this.teamCostRepo.save(savedTeamCost);
+
+		await this.recalculateChamberTeamCost(
+			matchId,
+			matchSession.id,
+			normalizedSide,
+			chamberIndex,
+			playerId,
+		);
+	}
+
+	private async updateSlotBuildByPlayer(
+		matchId: string,
+		teamOrder: number,
+		characterId: number,
+		characterConstellation: number,
+		weaponRefinement: number,
+		characterLevel: number,
+		playerId: string,
+		side?: "blue" | "red",
+	) {
 		const match = await this.findOne(matchId);
 		if ([MatchStatus.COMPLETED, MatchStatus.CANCELLED].includes(match.status)) {
 			throw new MatchAlreadyCompletedError();
@@ -1079,7 +1208,11 @@ export class MatchService {
 			throw new BadRequestException("Invalid team order");
 		}
 
-		if (characterConstellation < 0 || weaponRefinement < 0) {
+		if (
+			characterConstellation < 0 ||
+			weaponRefinement < 0 ||
+			characterLevel < 0
+		) {
 			throw new BadRequestException("Invalid slot build values");
 		}
 
@@ -1088,6 +1221,14 @@ export class MatchService {
 		const playerSide = this.getPlayerSide(match, playerId);
 		if (playerSide === null) {
 			throw new MatchNotFoundError();
+		}
+
+		if (side) {
+			const normalizedPayloadSide =
+				side === "blue" ? PlayerSide.BLUE : PlayerSide.RED;
+			if (playerSide !== normalizedPayloadSide) {
+				throw new BadRequestException("Cannot update the opponent side slots");
+			}
 		}
 
 		const normalizedSide = this.normalizePlayerSide(playerSide);
@@ -1107,7 +1248,127 @@ export class MatchService {
 
 		slot.characterConstellation = characterConstellation;
 		slot.weaponRefinement = weaponRefinement;
+		slot.characterLevel = characterLevel;
 		await this.banPickSlotRepo.save(slot);
+
+		const chamberIndex = Math.min(3, Math.ceil(teamOrder / CHAMBER_SLOT_COUNT));
+		await this.recalculateChamberTeamCost(
+			matchId,
+			matchSession.id,
+			playerSide,
+			chamberIndex,
+			playerId,
+		);
+	}
+
+	private getCharacterLevelTimeCost(level: number) {
+		if (level === 95) {
+			return 1;
+		}
+
+		if (level === 100) {
+			return 2;
+		}
+
+		return 0;
+	}
+
+	private async recalculateChamberTeamCost(
+		matchId: string,
+		matchSessionId: number,
+		teamSide: PlayerSide,
+		chamberIndex: number,
+		updatedBy: string,
+	) {
+		const sessionCost = await this.sessionCostRepo.findOne({
+			where: { matchSessionId },
+		});
+		if (!sessionCost) {
+			return;
+		}
+
+		const teamCost = await this.teamCostRepo.findOne({
+			where: {
+				matchSessionId,
+				sessionCostId: sessionCost.id,
+				teamSide,
+				chamberIndex,
+			},
+		});
+		if (!teamCost) {
+			return;
+		}
+
+		const matchSide = this.normalizePlayerSide(teamSide);
+		const startTeamOrder = (chamberIndex - 1) * CHAMBER_SLOT_COUNT + 1;
+		const endTeamOrder = chamberIndex * CHAMBER_SLOT_COUNT;
+		const slots = await this.banPickSlotRepo.find({
+			where: {
+				matchSessionId,
+				matchSide,
+				slotType: "PICK",
+				slotStatus: "LOCKED",
+				teamOrder: Between(startTeamOrder, endTeamOrder),
+			},
+		});
+
+		const characterCostCache = new Map<string, number>();
+		let totalConstellationCost = 0;
+		let totalRefinementCost = 0;
+		let totalLevelCost = 0;
+
+		for (const slot of slots) {
+			totalRefinementCost += slot.weaponRefinement ?? 0;
+			totalLevelCost += this.getCharacterLevelTimeCost(
+				slot.characterLevel ?? 0,
+			);
+
+			if (!slot.characterId) {
+				continue;
+			}
+
+			const constellation = slot.characterConstellation ?? 0;
+			const cacheKey = `${slot.characterId}:${constellation}`;
+			let characterCostValue = characterCostCache.get(cacheKey);
+			if (characterCostValue === undefined) {
+				const characterCost = await this.characterCostRepo.findOne({
+					where: { characterId: slot.characterId, constellation },
+					select: { cost: true },
+				});
+				characterCostValue = Number(characterCost?.cost) || 0;
+				characterCostCache.set(cacheKey, characterCostValue);
+			}
+
+			totalConstellationCost += characterCostValue;
+		}
+
+		teamCost.totalCharacterConstellationCost = totalConstellationCost;
+		teamCost.totalWeaponRefinementCost = totalRefinementCost;
+		teamCost.totalCharacterLevelCost = totalLevelCost;
+		teamCost.totalChamberTimeBonus =
+			totalConstellationCost * CHAMBER_CONSTELLATION_COST_MULTIPLIER +
+			totalRefinementCost * CHAMBER_REFINEMENT_COST_MULTIPLIER +
+			totalLevelCost +
+			(teamCost.isUsedStar ? CHAMBER_STAR_TIME_BONUS : 0);
+
+		await this.teamCostRepo.save(teamCost);
+
+		this.socketMatchService.emitToMatch(
+			matchId,
+			SocketEvents.UPDATE_TEAM_COST,
+			{
+				teamSide: teamSide === PlayerSide.BLUE ? "blue" : "red",
+				chamberIndex,
+				accountId: teamCost.accountId,
+				isUsedStar: teamCost.isUsedStar,
+				totalCharacterConstellationCost:
+					teamCost.totalCharacterConstellationCost,
+				totalWeaponRefinementCost: teamCost.totalWeaponRefinementCost,
+				totalCharacterLevelCost: teamCost.totalCharacterLevelCost,
+				totalChamberTimeBonus: teamCost.totalChamberTimeBonus,
+				updatedBy,
+			},
+		);
 	}
 
 	@Transactional()

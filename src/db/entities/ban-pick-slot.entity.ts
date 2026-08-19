@@ -78,6 +78,13 @@ export class BanPickSlotEntity {
 	})
 	weaponRefinement: number;
 
+	@Column({
+		name: ColumnNames.BanPickSlot.characterLevel,
+		type: "int",
+		nullable: true,
+	})
+	characterLevel: number;
+
 	@Column({ name: ColumnNames.BanPickSlot.selectedByAccountId, nullable: true })
 	selectedByAccountId: string;
 
