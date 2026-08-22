@@ -59,7 +59,6 @@ const THREE_VS_THREE_BANS_PER_SIDE = 1;
 const CHAMBER_SLOT_COUNT = 8;
 const CHAMBER_CONSTELLATION_COST_MULTIPLIER = 5;
 const CHAMBER_REFINEMENT_COST_MULTIPLIER = 2;
-const CHAMBER_STAR_TIME_BONUS = -15;
 
 const DRAFT_SEQUENCE: DraftAction[] = [
 	{ side: PlayerSide.BLUE, type: "ban" },
@@ -733,6 +732,113 @@ export class MatchService {
 		return playerSide === PlayerSide.BLUE ? "BLUE" : "RED";
 	}
 
+	private isHost(match: MatchEntity, playerId: string) {
+		return match.hostId === playerId;
+	}
+
+	private isDraftCompleted(matchState: MatchStateEntity, matchType: MatchType) {
+		const totalDraftActions = this.getDraftSequence(matchType).length;
+		const completedActions =
+			matchState.blueBanChars.length +
+			matchState.redBanChars.length +
+			matchState.blueSelectedChars.length +
+			matchState.redSelectedChars.length;
+
+		return completedActions >= totalDraftActions;
+	}
+
+	private async initializeThreeVsThreeTeamCosts(
+		match: MatchEntity,
+		matchSessionId: number,
+		updatedBy: string,
+	) {
+		let sessionCost = await this.sessionCostRepo.findOne({
+			where: { matchSessionId },
+		});
+
+		if (!sessionCost) {
+			sessionCost = await this.sessionCostRepo.save(
+				this.sessionCostRepo.create({
+					matchSessionId,
+					blueTotalCost: 0,
+					blueCostMilestone: 0,
+					blueConstellationCost: 0,
+					blueRefinementCost: 0,
+					blueLevelCost: 0,
+					blueTimeBonusCost: 0,
+					redTotalCost: 0,
+					redCostMilestone: 0,
+					redConstellationCost: 0,
+					redRefinementCost: 0,
+					redLevelCost: 0,
+					redTimeBonusCost: 0,
+				}),
+			);
+		}
+
+		for (const teamSide of [PlayerSide.BLUE, PlayerSide.RED]) {
+			const defaultAccountId =
+				teamSide === PlayerSide.BLUE ? match.bluePlayerId : match.redPlayerId;
+
+			for (let chamberIndex = 1; chamberIndex <= 3; chamberIndex += 1) {
+				const existing = await this.teamCostRepo.findOne({
+					where: {
+						matchSessionId,
+						sessionCostId: sessionCost.id,
+						teamSide,
+						chamberIndex,
+					},
+				});
+
+				if (!existing) {
+					await this.teamCostRepo.save(
+						this.teamCostRepo.create({
+							matchSessionId,
+							sessionCostId: sessionCost.id,
+							teamSide,
+							chamberIndex,
+							accountId: defaultAccountId,
+							totalCharacterConstellationCost: 0,
+							totalWeaponRefinementCost: 0,
+							totalCharacterLevelCost: 0,
+							totalChamberTimeBonus: 0,
+							isUsedStar: false,
+						}),
+					);
+				}
+
+				await this.recalculateChamberTeamCost(
+					match.id,
+					matchSessionId,
+					teamSide,
+					chamberIndex,
+					updatedBy,
+				);
+			}
+		}
+	}
+
+	private async initializeThreeVsThreeTeamCostsIfDraftCompleted(
+		match: MatchEntity,
+		matchSessionId: number,
+		matchState: MatchStateEntity,
+		updatedBy: string,
+	) {
+		if (match.type !== MatchType.THREE_VS_THREE) {
+			return;
+		}
+
+		if (!this.isDraftCompleted(matchState, match.type)) {
+			return;
+		}
+
+		await this.initializeThreeVsThreeTeamCosts(
+			match,
+			matchSessionId,
+			updatedBy,
+		);
+	}
+
 	private async createBanPickSlot(
 		matchSessionId: number,
 		playerSide: PlayerSide,
@@ -824,7 +930,16 @@ export class MatchService {
 			charId,
 			playerId,
 		);
-		await this.saveAndBroadcastMatchState(matchId, match);
+		const savedMatchState = await this.saveAndBroadcastMatchState(
+			matchId,
+			match,
+		);
+		await this.initializeThreeVsThreeTeamCostsIfDraftCompleted(
+			match,
+			matchSession.id,
+			savedMatchState,
+			playerId,
+		);
 	}
 
 	@Transactional()
@@ -860,7 +975,16 @@ export class MatchService {
 			charId,
 			playerId,
 		);
-		await this.saveAndBroadcastMatchState(matchId, match);
+		const savedMatchState = await this.saveAndBroadcastMatchState(
+			matchId,
+			match,
+		);
+		await this.initializeThreeVsThreeTeamCostsIfDraftCompleted(
+			match,
+			matchSession.id,
+			savedMatchState,
+			playerId,
+		);
 	}
 
 	@Transactional()
@@ -890,7 +1014,8 @@ export class MatchService {
 
 		const normalizedPayloadSide =
 			side === "blue" ? PlayerSide.BLUE : PlayerSide.RED;
-		if (playerSide !== normalizedPayloadSide) {
+		const isHost = this.isHost(match, playerId);
+		if (!isHost && playerSide !== normalizedPayloadSide) {
 			throw new BadRequestException("Cannot reorder the opponent side slots");
 		}
 
@@ -960,7 +1085,16 @@ export class MatchService {
 			charId,
 			playerId,
 		);
-		await this.saveAndBroadcastMatchState(matchId, match);
+		const savedMatchState = await this.saveAndBroadcastMatchState(
+			matchId,
+			match,
+		);
+		await this.initializeThreeVsThreeTeamCostsIfDraftCompleted(
+			match,
+			matchSession.id,
+			savedMatchState,
+			playerId,
+		);
 	}
 
 	@Transactional()
@@ -1133,8 +1267,11 @@ export class MatchService {
 
 		const expectedSide =
 			teamSide === "blue" ? match.bluePlayerId : match.redPlayerId;
-		if (expectedSide !== playerId) {
-			throw new BadRequestException("Cannot update the opponent team cost");
+		const isHost = this.isHost(match, playerId);
+		if (expectedSide !== playerId && !isHost) {
+			throw new BadRequestException(
+				"Cannot update. You are not host or side owner",
+			);
 		}
 
 		const matchState = await this.matchStateRepo.findOneOrCreate(matchId);
@@ -1226,8 +1363,11 @@ export class MatchService {
 		if (side) {
 			const normalizedPayloadSide =
 				side === "blue" ? PlayerSide.BLUE : PlayerSide.RED;
-			if (playerSide !== normalizedPayloadSide) {
-				throw new BadRequestException("Cannot update the opponent side slots");
+			const isHost = this.isHost(match, playerId);
+			if (!isHost && playerSide !== normalizedPayloadSide) {
+				throw new BadRequestException(
+					"Cannot update. You are not host or side owner",
+				);
 			}
 		}
 
@@ -1348,8 +1488,7 @@ export class MatchService {
 		teamCost.totalChamberTimeBonus =
 			totalConstellationCost * CHAMBER_CONSTELLATION_COST_MULTIPLIER +
 			totalRefinementCost * CHAMBER_REFINEMENT_COST_MULTIPLIER +
-			totalLevelCost +
-			(teamCost.isUsedStar ? CHAMBER_STAR_TIME_BONUS : 0);
+			totalLevelCost;
 
 		await this.teamCostRepo.save(teamCost);
 

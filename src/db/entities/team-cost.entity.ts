@@ -1,11 +1,10 @@
 import {
+	AfterLoad,
 	Column,
-	CreateDateColumn,
 	Entity,
 	JoinColumn,
 	ManyToOne,
 	PrimaryGeneratedColumn,
-	UpdateDateColumn,
 } from "typeorm";
 import { ColumnNames, TableNames } from "@db/db.constants";
 import { MatchSessionEntity } from "./match-session.entity";
@@ -56,7 +55,9 @@ export class TeamCostEntity extends BaseAuditEntity {
 
 	@Column({
 		name: ColumnNames.TeamCost.totalCharacterConstellationCost,
-		type: "int",
+		type: "decimal",
+		precision: 7,
+		scale: 2,
 	})
 	totalCharacterConstellationCost: number;
 
@@ -66,7 +67,12 @@ export class TeamCostEntity extends BaseAuditEntity {
 	@Column({ name: ColumnNames.TeamCost.totalCharacterLevelCost, type: "int" })
 	totalCharacterLevelCost: number;
 
-	@Column({ name: ColumnNames.TeamCost.totalChamberTimeBonus, type: "int" })
+	@Column({
+		name: ColumnNames.TeamCost.totalChamberTimeBonus,
+		type: "decimal",
+		precision: 7,
+		scale: 2,
+	})
 	totalChamberTimeBonus: number;
 
 	@Column({
@@ -75,4 +81,14 @@ export class TeamCostEntity extends BaseAuditEntity {
 		default: false,
 	})
 	isUsedStar: boolean;
+
+	@AfterLoad()
+	afterLoad() {
+		this.totalCharacterConstellationCost = Number(
+			this.totalCharacterConstellationCost,
+		);
+		this.totalWeaponRefinementCost = Number(this.totalWeaponRefinementCost);
+		this.totalCharacterLevelCost = Number(this.totalCharacterLevelCost);
+		this.totalChamberTimeBonus = Number(this.totalChamberTimeBonus);
+	}
 }

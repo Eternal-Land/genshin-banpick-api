@@ -3,11 +3,12 @@ import {
 	MatchSessionRepository,
 	SessionCostRepository,
 	SessionRecordRepository,
+	TeamCostRepository,
 } from "@db/repositories";
 import { MatchSessionEntity, SessionRecordEntity } from "@db/entities";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { GenshinBanpickCls } from "@utils";
-import { MatchType } from "@utils/enums";
+import { MatchType, PlayerSide } from "@utils/enums";
 import { ClsService } from "nestjs-cls";
 import { In } from "typeorm";
 import { SaveSessionRecordRequest } from "./dto";
@@ -21,6 +22,7 @@ export class UserSessionRecordService {
 		private readonly matchSessionRepo: MatchSessionRepository,
 		private readonly sessionRecordRepo: SessionRecordRepository,
 		private readonly sessionCostRepo: SessionCostRepository,
+		private readonly teamCostRepo: TeamCostRepository,
 		private readonly cls: ClsService<GenshinBanpickCls>,
 	) {}
 
@@ -281,11 +283,41 @@ export class UserSessionRecordService {
 			costs.map((cost) => [cost.matchSessionId, cost] as const),
 		);
 
+		const teamCosts = sessionIds.length
+			? await this.teamCostRepo.find({
+					where: { matchSessionId: In(sessionIds), isDeleted: false },
+				})
+			: [];
+
+		const teamTimeBonusBySessionId = new Map<
+			number,
+			{ blueTimeBonus: number; redTimeBonus: number }
+		>();
+
+		for (const teamCost of teamCosts) {
+			const aggregated = teamTimeBonusBySessionId.get(
+				teamCost.matchSessionId,
+			) ?? {
+				blueTimeBonus: 0,
+				redTimeBonus: 0,
+			};
+			const bonusValue = Number(teamCost.totalChamberTimeBonus ?? 0);
+
+			if (teamCost.teamSide === PlayerSide.BLUE) {
+				aggregated.blueTimeBonus += bonusValue;
+			} else if (teamCost.teamSide === PlayerSide.RED) {
+				aggregated.redTimeBonus += bonusValue;
+			}
+
+			teamTimeBonusBySessionId.set(teamCost.matchSessionId, aggregated);
+		}
+
 		return {
 			match,
 			sessions,
 			recordsBySessionId,
 			costsBySessionId,
+			teamTimeBonusBySessionId,
 		};
 	}
 }
