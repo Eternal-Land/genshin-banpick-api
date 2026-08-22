@@ -19,6 +19,7 @@ export class UserSessionStateController {
 				sessionState.matchSessionId,
 				sessionState.banPickSlots,
 				sessionState.teamCosts,
+				sessionState.sessionRecord ?? null,
 			),
 		);
 	}

@@ -3,11 +3,12 @@ import {
 	MatchSessionRepository,
 	SessionCostRepository,
 	SessionRecordRepository,
+	TeamCostRepository,
 } from "@db/repositories";
 import { MatchSessionEntity, SessionRecordEntity } from "@db/entities";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { GenshinBanpickCls } from "@utils";
-import { MatchType } from "@utils/enums";
+import { MatchType, PlayerSide } from "@utils/enums";
 import { ClsService } from "nestjs-cls";
 import { In } from "typeorm";
 import { SaveSessionRecordRequest } from "./dto";
@@ -21,6 +22,7 @@ export class UserSessionRecordService {
 		private readonly matchSessionRepo: MatchSessionRepository,
 		private readonly sessionRecordRepo: SessionRecordRepository,
 		private readonly sessionCostRepo: SessionCostRepository,
+		private readonly teamCostRepo: TeamCostRepository,
 		private readonly cls: ClsService<GenshinBanpickCls>,
 	) {}
 
@@ -132,6 +134,108 @@ export class UserSessionRecordService {
 		});
 	}
 
+	async updateChamberClearTimeFromSocket(
+		matchSessionId: number,
+		teamSide: "blue" | "red",
+		chamberIndex: number,
+		clearTimeSeconds: number,
+		accountId?: string,
+	) {
+		const currentAccountId = accountId ?? this.cls.get("profile.id");
+
+		if (chamberIndex < 1 || chamberIndex > 3) {
+			throw new NotFoundException("Invalid chamber index");
+		}
+
+		return await this.sessionRecordRepo.manager.transaction(async (manager) => {
+			const matchSession = await manager
+				.getRepository(MatchSessionEntity)
+				.createQueryBuilder("matchSession")
+				.leftJoinAndSelect("matchSession.match", "match")
+				.setLock("pessimistic_write")
+				.where("matchSession.id = :matchSessionId", { matchSessionId })
+				.andWhere("matchSession.isDeleted = :isDeleted", {
+					isDeleted: false,
+				})
+				.getOne();
+
+			if (!matchSession) {
+				throw new NotFoundException("Match session not found");
+			}
+
+			const sessionRecordRepo = manager.getRepository(SessionRecordEntity);
+			const existedRecords = await sessionRecordRepo.find({
+				where: { matchSessionId, isDeleted: false },
+				order: { updatedAt: "DESC", id: "DESC" },
+			});
+
+			const primaryRecord =
+				existedRecords[0] ??
+				sessionRecordRepo.create({
+					matchSessionId,
+					blueChamber1: 0,
+					blueChamber2: 0,
+					blueChamber3: 0,
+					blueResetTimes: 0,
+					blueFinalTime: 0,
+					redChamber1: 0,
+					redChamber2: 0,
+					redChamber3: 0,
+					redResetTimes: 0,
+					redFinalTime: 0,
+					createdBy: currentAccountId,
+					updatedBy: currentAccountId,
+					isDeleted: false,
+				});
+
+			const normalizedClearTime = Number.isFinite(clearTimeSeconds)
+				? Math.max(0, Math.floor(clearTimeSeconds))
+				: 0;
+			const chamberValue = Math.max(0, 600 - normalizedClearTime);
+
+			if (teamSide === "blue") {
+				if (chamberIndex === 1) {
+					primaryRecord.blueChamber1 = chamberValue;
+				} else if (chamberIndex === 2) {
+					primaryRecord.blueChamber2 = chamberValue;
+				} else {
+					primaryRecord.blueChamber3 = chamberValue;
+				}
+			} else if (chamberIndex === 1) {
+				primaryRecord.redChamber1 = chamberValue;
+			} else if (chamberIndex === 2) {
+				primaryRecord.redChamber2 = chamberValue;
+			} else {
+				primaryRecord.redChamber3 = chamberValue;
+			}
+
+			primaryRecord.blueFinalTime =
+				primaryRecord.blueChamber1 +
+				primaryRecord.blueChamber2 +
+				primaryRecord.blueChamber3 +
+				primaryRecord.blueResetTimes * RESET_TIME_PENALTY_SECONDS;
+			primaryRecord.redFinalTime =
+				primaryRecord.redChamber1 +
+				primaryRecord.redChamber2 +
+				primaryRecord.redChamber3 +
+				primaryRecord.redResetTimes * RESET_TIME_PENALTY_SECONDS;
+
+			primaryRecord.updatedBy = currentAccountId;
+			primaryRecord.isDeleted = false;
+
+			const duplicateRecords = existedRecords.slice(1);
+			if (duplicateRecords.length > 0) {
+				for (const duplicateRecord of duplicateRecords) {
+					duplicateRecord.isDeleted = true;
+					duplicateRecord.updatedBy = currentAccountId;
+				}
+				await sessionRecordRepo.save(duplicateRecords);
+			}
+
+			return await sessionRecordRepo.save(primaryRecord);
+		});
+	}
+
 	async getMatchReport(matchId: string) {
 		const match = await this.matchRepo.findOne({
 			where: { id: matchId },
@@ -179,11 +283,41 @@ export class UserSessionRecordService {
 			costs.map((cost) => [cost.matchSessionId, cost] as const),
 		);
 
+		const teamCosts = sessionIds.length
+			? await this.teamCostRepo.find({
+					where: { matchSessionId: In(sessionIds), isDeleted: false },
+				})
+			: [];
+
+		const teamTimeBonusBySessionId = new Map<
+			number,
+			{ blueTimeBonus: number; redTimeBonus: number }
+		>();
+
+		for (const teamCost of teamCosts) {
+			const aggregated = teamTimeBonusBySessionId.get(
+				teamCost.matchSessionId,
+			) ?? {
+				blueTimeBonus: 0,
+				redTimeBonus: 0,
+			};
+			const bonusValue = Number(teamCost.totalChamberTimeBonus ?? 0);
+
+			if (teamCost.teamSide === PlayerSide.BLUE) {
+				aggregated.blueTimeBonus += bonusValue;
+			} else if (teamCost.teamSide === PlayerSide.RED) {
+				aggregated.redTimeBonus += bonusValue;
+			}
+
+			teamTimeBonusBySessionId.set(teamCost.matchSessionId, aggregated);
+		}
+
 		return {
 			match,
 			sessions,
 			recordsBySessionId,
 			costsBySessionId,
+			teamTimeBonusBySessionId,
 		};
 	}
 }

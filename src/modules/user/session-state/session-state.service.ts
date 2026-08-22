@@ -2,6 +2,7 @@ import {
 	BanPickSlotRepository,
 	MatchStateRepository,
 	MatchSessionRepository,
+	SessionRecordRepository,
 	TeamCostRepository,
 } from "@db/repositories";
 import { Injectable, NotFoundException } from "@nestjs/common";
@@ -13,6 +14,7 @@ export class UserSessionStateService {
 		private readonly matchStateRepo: MatchStateRepository,
 		private readonly banPickSlotRepo: BanPickSlotRepository,
 		private readonly teamCostRepo: TeamCostRepository,
+		private readonly sessionRecordRepo: SessionRecordRepository,
 	) {}
 
 	async getCurrentSessionState(matchId: string) {
@@ -32,7 +34,7 @@ export class UserSessionStateService {
 			sessions.find((session) => session.id === matchState?.currentSession) ??
 			sessions[0];
 
-		const [banPickSlots, teamCosts] = await Promise.all([
+		const [banPickSlots, teamCosts, sessionRecord] = await Promise.all([
 			this.banPickSlotRepo.find({
 				where: {
 					matchSessionId: currentSession.id,
@@ -52,12 +54,23 @@ export class UserSessionStateService {
 					id: "ASC",
 				},
 			}),
+			this.sessionRecordRepo.findOne({
+				where: {
+					matchSessionId: currentSession.id,
+					isDeleted: false,
+				},
+				order: {
+					updatedAt: "DESC",
+					id: "DESC",
+				},
+			}),
 		]);
 
 		return {
 			matchSessionId: currentSession.id,
 			banPickSlots,
 			teamCosts,
+			sessionRecord,
 		};
 	}
 }

@@ -54,6 +54,35 @@ type SwapBanPickSlotPositionPayload = {
 	updatedBy?: string;
 };
 
+type UpdatePickSlotPayload = {
+	matchId?: string;
+	side?: "blue" | "red";
+	teamOrder?: number;
+	characterId?: number;
+	characterConstellation?: number;
+	weaponRefinement?: number;
+	characterLevel?: number;
+	updatedBy?: string;
+};
+
+type UpdateTeamCostPayload = {
+	matchId?: string;
+	teamSide?: "blue" | "red";
+	chamberIndex?: number;
+	accountId?: string;
+	isUsedStar?: boolean;
+	updatedBy?: string;
+};
+
+type UpdateChamberClearTimePayload = {
+	matchId?: string;
+	matchSessionId?: number;
+	teamSide?: "blue" | "red";
+	chamberIndex?: number;
+	clearTimeSeconds?: number;
+	updatedBy?: string;
+};
+
 const SESSION_RECORD_FIELDS: Array<keyof SaveSessionRecordRequest> = [
 	"blueChamber1",
 	"blueChamber2",
@@ -260,6 +289,125 @@ export class SocketGateway
 				side: payload.side,
 				sourceTeamOrder,
 				targetTeamOrder,
+				updatedBy: payload.updatedBy ?? profileId,
+			},
+		);
+
+		return { ok: true };
+	}
+
+	@SubscribeMessage(SocketEvents.UPDATE_PICK_SLOT)
+	async handleUpdatePickSlot(client: Socket, payload: UpdatePickSlotPayload) {
+		if (
+			!payload?.matchId ||
+			!payload?.side ||
+			!Number.isInteger(payload?.teamOrder) ||
+			!Number.isInteger(payload?.characterId) ||
+			!Number.isInteger(payload?.characterConstellation) ||
+			!Number.isInteger(payload?.weaponRefinement) ||
+			!Number.isInteger(payload?.characterLevel)
+		) {
+			return { ok: false };
+		}
+
+		const profileId = client.data?.profile?.id;
+		if (!profileId) {
+			throw new WsException("Unauthorized");
+		}
+
+		await this.matchService.updateSlotBuildFromSocket(
+			payload.matchId,
+			payload.side,
+			payload.teamOrder,
+			payload.characterId,
+			payload.characterConstellation,
+			payload.weaponRefinement,
+			payload.characterLevel,
+			profileId,
+		);
+
+		this.socketMatchService.emitToMatch(
+			payload.matchId,
+			SocketEvents.UPDATE_PICK_SLOT,
+			{
+				side: payload.side,
+				teamOrder: payload.teamOrder,
+				characterId: payload.characterId,
+				characterConstellation: payload.characterConstellation,
+				weaponRefinement: payload.weaponRefinement,
+				characterLevel: payload.characterLevel,
+				updatedBy: payload.updatedBy ?? profileId,
+			},
+		);
+
+		return { ok: true };
+	}
+
+	@SubscribeMessage(SocketEvents.UPDATE_TEAM_COST)
+	async handleUpdateTeamCost(client: Socket, payload: UpdateTeamCostPayload) {
+		if (
+			!payload?.matchId ||
+			!payload?.teamSide ||
+			!Number.isInteger(payload?.chamberIndex) ||
+			!payload?.accountId ||
+			typeof payload.isUsedStar !== "boolean"
+		) {
+			return { ok: false };
+		}
+
+		const profileId = client.data?.profile?.id;
+		if (!profileId) {
+			throw new WsException("Unauthorized");
+		}
+
+		await this.matchService.updateTeamCostFromSocket(
+			payload.matchId,
+			payload.teamSide,
+			payload.chamberIndex,
+			payload.accountId,
+			payload.isUsedStar,
+			profileId,
+		);
+
+		return { ok: true };
+	}
+
+	@SubscribeMessage(SocketEvents.UPDATE_CHAMBER_CLEAR_TIME)
+	async handleUpdateChamberClearTime(
+		client: Socket,
+		payload: UpdateChamberClearTimePayload,
+	) {
+		if (
+			!payload?.matchId ||
+			!Number.isInteger(payload?.matchSessionId) ||
+			!payload?.teamSide ||
+			!Number.isInteger(payload?.chamberIndex) ||
+			!Number.isInteger(payload?.clearTimeSeconds)
+		) {
+			return { ok: false };
+		}
+
+		const profileId = client.data?.profile?.id;
+		if (!profileId) {
+			throw new WsException("Unauthorized");
+		}
+
+		await this.userSessionRecordService.updateChamberClearTimeFromSocket(
+			payload.matchSessionId,
+			payload.teamSide,
+			payload.chamberIndex,
+			payload.clearTimeSeconds,
+			profileId,
+		);
+
+		this.socketMatchService.emitToMatch(
+			payload.matchId,
+			SocketEvents.UPDATE_CHAMBER_CLEAR_TIME,
+			{
+				matchSessionId: payload.matchSessionId,
+				teamSide: payload.teamSide,
+				chamberIndex: payload.chamberIndex,
+				clearTimeSeconds: payload.clearTimeSeconds,
 				updatedBy: payload.updatedBy ?? profileId,
 			},
 		);

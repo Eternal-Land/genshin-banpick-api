@@ -157,6 +157,7 @@ export const ColumnNames = {
 		characterConstellation: "character_constellation",
 		weaponId: "weapon_id",
 		weaponRefinement: "weapon_refinement",
+		characterLevel: "character_level",
 		selectedByAccountId: "selected_by_account_id",
 		lockedAt: "locked_at",
 		weaponSelectedAt: "weapon_selected_at",

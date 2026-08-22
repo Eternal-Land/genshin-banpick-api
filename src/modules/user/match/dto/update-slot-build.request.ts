@@ -21,4 +21,9 @@ export class UpdateSlotBuildRequest {
 	@IsInt()
 	@Min(0)
 	weaponRefinement: number;
+
+	@ApiProperty()
+	@IsInt()
+	@Min(0)
+	characterLevel: number;
 }

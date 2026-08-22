@@ -141,6 +141,7 @@ export class MatchController {
 			dto.characterId,
 			dto.characterConstellation,
 			dto.weaponRefinement,
+			dto.characterLevel,
 		);
 		return BaseApiResponse.success();
 	}
