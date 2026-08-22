@@ -83,6 +83,11 @@ type UpdateChamberClearTimePayload = {
 	updatedBy?: string;
 };
 
+type UndoLastBanPickTurnPayload = {
+	matchId?: string;
+	updatedBy?: string;
+};
+
 const SESSION_RECORD_FIELDS: Array<keyof SaveSessionRecordRequest> = [
 	"blueChamber1",
 	"blueChamber2",
@@ -410,6 +415,34 @@ export class SocketGateway
 				clearTimeSeconds: payload.clearTimeSeconds,
 				updatedBy: payload.updatedBy ?? profileId,
 			},
+		);
+
+		return { ok: true };
+	}
+
+	@SubscribeMessage(SocketEvents.UNDO_LAST_BAN_PICK_TURN)
+	async handleUndoLastBanPickTurn(
+		client: Socket,
+		payload: UndoLastBanPickTurnPayload,
+	) {
+		if (!payload?.matchId) {
+			return { ok: false };
+		}
+
+		const profileId = client.data?.profile?.id;
+		if (!profileId) {
+			throw new WsException("Unauthorized");
+		}
+
+		await this.matchService.undoLastBanPickTurnFromSocket(
+			payload.matchId,
+			profileId,
+		);
+
+		this.socketMatchService.emitToMatch(
+			payload.matchId,
+			SocketEvents.UNDO_LAST_BAN_PICK_TURN,
+			{ updatedBy: payload.updatedBy ?? profileId },
 		);
 
 		return { ok: true };

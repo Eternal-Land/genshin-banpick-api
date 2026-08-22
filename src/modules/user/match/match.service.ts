@@ -871,6 +871,9 @@ export class MatchService {
 			slotStatus: "LOCKED",
 			characterId,
 			selectedByAccountId,
+			characterLevel: 90,
+			characterConstellation: 0,
+			weaponRefinement: 0,
 			lockedAt: new Date(),
 		});
 	}
@@ -993,6 +996,37 @@ export class MatchService {
 	}
 
 	@Transactional()
+	async undoLastBanPickTurnFromSocket(matchId: string, playerId: string) {
+		const match = await this.findOne(matchId);
+		if ([MatchStatus.COMPLETED, MatchStatus.CANCELLED].includes(match.status)) {
+			throw new MatchAlreadyCompletedError();
+		}
+
+		if (!this.isHost(match, playerId)) {
+			throw new BadRequestException("Only host can undo previous turn");
+		}
+
+		const matchState = await this.matchStateRepo.findOneOrCreate(matchId);
+		const matchSession = await this.getCurrentMatchSession(match, matchState);
+
+		const lastLockedSlot = await this.banPickSlotRepo.findOne({
+			where: {
+				matchSessionId: matchSession.id,
+				slotStatus: "LOCKED",
+			},
+			order: { turnIndex: "DESC" },
+			select: { id: true },
+		});
+
+		if (!lastLockedSlot) {
+			return;
+		}
+
+		await this.banPickSlotRepo.delete({ id: lastLockedSlot.id });
+		await this.saveAndBroadcastMatchState(matchId, match);
+	}
+
+	@Transactional()
 	async swapBanPickSlotTeamOrderFromSocket(
 		matchId: string,
 		side: "blue" | "red",
@@ -1057,6 +1091,17 @@ export class MatchService {
 		targetSlot.teamOrder = sourceTeamOrder;
 
 		await this.banPickSlotRepo.save([sourceSlot, targetSlot]);
+
+		for (let chamberIndex = 1; chamberIndex <= 3; chamberIndex += 1) {
+			await this.recalculateChamberTeamCost(
+				matchId,
+				matchSession.id,
+				normalizedPayloadSide,
+				chamberIndex,
+				playerId,
+			);
+		}
+
 		await this.saveAndBroadcastMatchState(matchId, match);
 	}
 
@@ -1360,6 +1405,8 @@ export class MatchService {
 			throw new MatchNotFoundError();
 		}
 
+		let targetSide = playerSide;
+
 		if (side) {
 			const normalizedPayloadSide =
 				side === "blue" ? PlayerSide.BLUE : PlayerSide.RED;
@@ -1369,9 +1416,11 @@ export class MatchService {
 					"Cannot update. You are not host or side owner",
 				);
 			}
+
+			targetSide = normalizedPayloadSide;
 		}
 
-		const normalizedSide = this.normalizePlayerSide(playerSide);
+		const normalizedSide = this.normalizePlayerSide(targetSide);
 		const slot = await this.banPickSlotRepo.findOne({
 			where: {
 				matchSessionId: matchSession.id,
@@ -1395,7 +1444,7 @@ export class MatchService {
 		await this.recalculateChamberTeamCost(
 			matchId,
 			matchSession.id,
-			playerSide,
+			targetSide,
 			chamberIndex,
 			playerId,
 		);
