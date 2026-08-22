@@ -8,6 +8,7 @@ export const SocketEvents = {
 	UPDATE_BAN_PICK_SLOT: "update_ban_pick_slot",
 	UPDATE_PICK_SLOT: "update_pick_slot",
 	UPDATE_TEAM_COST: "update_team_cost",
+	UNDO_LAST_BAN_PICK_TURN: "undo_last_ban_pick_turn",
 	SWAP_BAN_PICK_SLOT_POSITION: "swap_ban_pick_slot_position",
 	UPDATE_MATCH_SESSION: "update_match_session",
 	UPDATE_MATCH_TIMER_INPUTS: "update_match_timer_inputs",
