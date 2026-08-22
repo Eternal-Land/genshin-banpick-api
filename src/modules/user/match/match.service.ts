@@ -1516,19 +1516,24 @@ export class MatchService {
 				continue;
 			}
 
-			const constellation = slot.characterConstellation ?? 0;
-			const cacheKey = `${slot.characterId}:${constellation}`;
-			let characterCostValue = characterCostCache.get(cacheKey);
-			if (characterCostValue === undefined) {
-				const characterCost = await this.characterCostRepo.findOne({
-					where: { characterId: slot.characterId, constellation },
-					select: { cost: true },
-				});
-				characterCostValue = Number(characterCost?.cost) || 0;
-				characterCostCache.set(cacheKey, characterCostValue);
-			}
+			// const constellation = slot.characterConstellation ?? 0;
+			// const cacheKey = `${slot.characterId}:${constellation}`;
+			// let characterCostValue = characterCostCache.get(cacheKey);
+			// if (characterCostValue === undefined) {
+			// 	const characterCost = await this.characterCostRepo.findOne({
+			// 		where: { characterId: slot.characterId, constellation },
+			// 		select: { cost: true },
+			// 	});
+			// 	characterCostValue = Number(characterCost?.cost) || 0;
+			// 	characterCostCache.set(cacheKey, characterCostValue);
+			// }
 
-			totalConstellationCost += characterCostValue;
+			const character = await this.characterRepo.findOne({
+				where: { id: slot.characterId },
+			});
+			if (character && character.isActive && character.rarity === 5) {
+				totalConstellationCost += (slot.characterConstellation ?? 0) + 1;
+			}
 		}
 
 		teamCost.totalCharacterConstellationCost = totalConstellationCost;
