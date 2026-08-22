@@ -1,12 +1,15 @@
 import {
 	AccountCharacterRepository,
 	BanPickSlotRepository,
+	CharacterCostRepository,
+	CharacterRepository,
 	MatchRepository,
 	MatchSessionRepository,
 	MatchStateRepository,
 	SessionCostRepository,
 	SessionRecordRepository,
 	WeaponRepository,
+	TeamCostRepository,
 } from "@db/repositories";
 import {
 	MatchEntity,
@@ -42,7 +45,7 @@ import {
 } from "./errors";
 import { SocketMatchService } from "@modules/socket/services";
 import { SocketEvents } from "@utils/constants";
-import { In, Not } from "typeorm";
+import { Between, In, Not } from "typeorm";
 import { UserSessionCostService } from "../session-cost";
 
 interface DraftAction {
@@ -51,6 +54,11 @@ interface DraftAction {
 }
 
 const RESET_TIME_PENALTY_SECONDS = 10;
+const THREE_VS_THREE_PICKS_PER_SIDE = 24;
+const THREE_VS_THREE_BANS_PER_SIDE = 1;
+const CHAMBER_SLOT_COUNT = 8;
+const CHAMBER_CONSTELLATION_COST_MULTIPLIER = 5;
+const CHAMBER_REFINEMENT_COST_MULTIPLIER = 2;
 
 const DRAFT_SEQUENCE: DraftAction[] = [
 	{ side: PlayerSide.BLUE, type: "ban" },
@@ -77,6 +85,44 @@ const DRAFT_SEQUENCE: DraftAction[] = [
 	{ side: PlayerSide.RED, type: "pick" },
 ];
 
+/**
+ * Creates the 3v3 draft sequence.
+ * Pattern: Blue ban, Red ban, then Blue pick 1, Red pick 2,
+ * alternating Blue pick 2 and Red pick 2, and ending with Blue pick 1.
+ */
+const createAlternatingBanPickDraftSequence = (
+	bansPerSide: number,
+	picksPerSide: number,
+): DraftAction[] => {
+	const sequence: DraftAction[] = [];
+
+	for (let i = 0; i < bansPerSide; i += 1) {
+		sequence.push({ side: PlayerSide.BLUE, type: "ban" });
+		sequence.push({ side: PlayerSide.RED, type: "ban" });
+	}
+
+	sequence.push({ side: PlayerSide.BLUE, type: "pick" });
+	sequence.push({ side: PlayerSide.RED, type: "pick" });
+	sequence.push({ side: PlayerSide.RED, type: "pick" });
+
+	const doublePickRounds = (picksPerSide - 2) / 2;
+	for (let i = 0; i < doublePickRounds; i += 1) {
+		sequence.push({ side: PlayerSide.BLUE, type: "pick" });
+		sequence.push({ side: PlayerSide.BLUE, type: "pick" });
+		sequence.push({ side: PlayerSide.RED, type: "pick" });
+		sequence.push({ side: PlayerSide.RED, type: "pick" });
+	}
+
+	sequence.push({ side: PlayerSide.BLUE, type: "pick" });
+
+	return sequence;
+};
+
+const THREE_VS_THREE_DRAFT_SEQUENCE = createAlternatingBanPickDraftSequence(
+	THREE_VS_THREE_BANS_PER_SIDE,
+	THREE_VS_THREE_PICKS_PER_SIDE,
+);
+
 interface FindOneOptions {
 	isHost?: boolean;
 	isNotStarted?: boolean;
@@ -93,10 +139,21 @@ export class MatchService {
 		private readonly matchSessionRepo: MatchSessionRepository,
 		private readonly banPickSlotRepo: BanPickSlotRepository,
 		private readonly accountCharacterRepo: AccountCharacterRepository,
+		private readonly characterRepo: CharacterRepository,
 		private readonly weaponRepo: WeaponRepository,
 		private readonly sessionRecordRepo: SessionRecordRepository,
 		private readonly sessionCostRepo: SessionCostRepository,
+		private readonly teamCostRepo: TeamCostRepository,
+		private readonly characterCostRepo: CharacterCostRepository,
 	) {}
+
+	private getDraftSequence(matchType: MatchType) {
+		if (matchType === MatchType.THREE_VS_THREE) {
+			return THREE_VS_THREE_DRAFT_SEQUENCE;
+		}
+
+		return DRAFT_SEQUENCE;
+	}
 
 	@Transactional()
 	async createOne(dto: CreateMatchRequest) {
@@ -234,6 +291,8 @@ export class MatchService {
 		slots: Array<{
 			slotType: string;
 			matchSide: string;
+			teamOrder: number;
+			turnIndex: number;
 			characterId: number;
 			weaponId: number | null;
 			weaponRefinement: number | null;
@@ -248,20 +307,41 @@ export class MatchService {
 		const redSelectedWeapons: string[] = [];
 		const redSelectedWeaponRefinements: number[] = [];
 
-		slots.forEach((slot) => {
+		const banSlots = slots.filter((slot) => slot.slotType === "BAN");
+		const pickSlots = slots
+			.filter((slot) => slot.slotType === "PICK")
+			.sort((left, right) => {
+				if (left.matchSide !== right.matchSide) {
+					return left.matchSide.localeCompare(right.matchSide);
+				}
+
+				if (left.teamOrder !== right.teamOrder) {
+					return left.teamOrder - right.teamOrder;
+				}
+
+				return left.turnIndex - right.turnIndex;
+			});
+
+		banSlots.forEach((slot) => {
 			const characterId = String(slot.characterId);
+			if (slot.matchSide === "BLUE") {
+				blueBanChars.push(characterId);
+			} else {
+				redBanChars.push(characterId);
+			}
+		});
+
+		const bannedCharacterIds = new Set([...blueBanChars, ...redBanChars]);
+
+		pickSlots.forEach((slot) => {
+			const characterId = String(slot.characterId);
+			if (bannedCharacterIds.has(characterId)) {
+				return;
+			}
+
 			const weaponId = slot.weaponId ? String(slot.weaponId) : "";
 			const weaponRefinement =
 				typeof slot.weaponRefinement === "number" ? slot.weaponRefinement : 0;
-
-			if (slot.slotType === "BAN") {
-				if (slot.matchSide === "BLUE") {
-					blueBanChars.push(characterId);
-				} else {
-					redBanChars.push(characterId);
-				}
-				return;
-			}
 
 			if (slot.matchSide === "BLUE") {
 				blueSelectedChars.push(characterId);
@@ -296,6 +376,7 @@ export class MatchService {
 		match: MatchEntity,
 		matchState: MatchStateEntity,
 	) {
+		const draftSequence = this.getDraftSequence(match.type);
 		const currentSession = await this.getCurrentMatchSession(match, matchState);
 		const slots = await this.banPickSlotRepo.find({
 			where: {
@@ -306,6 +387,8 @@ export class MatchService {
 			select: {
 				slotType: true,
 				matchSide: true,
+				teamOrder: true,
+				turnIndex: true,
 				characterId: true,
 				weaponId: true,
 				weaponRefinement: true,
@@ -319,10 +402,10 @@ export class MatchService {
 				matchState.blueSelectedChars.length +
 				matchState.redBanChars.length +
 				matchState.redSelectedChars.length,
-			DRAFT_SEQUENCE.length,
+			draftSequence.length,
 		);
 
-		const nextAction = DRAFT_SEQUENCE[draftStep];
+		const nextAction = draftSequence[draftStep];
 		if (nextAction && matchState.currentTurn !== nextAction.side) {
 			matchState.currentTurn = nextAction.side;
 		}
@@ -407,9 +490,16 @@ export class MatchService {
 	}
 
 	async startMatch(matchId: string) {
-		await this.findOne(matchId, { isHost: true, isNotStarted: true });
+		const match = await this.findOne(matchId, {
+			isHost: true,
+			isNotStarted: true,
+		});
 		await this.matchRepo.update(matchId, { status: MatchStatus.LIVE });
-		this.socketMatchService.emitToMatch(matchId, SocketEvents.MATCH_STARTED);
+		this.socketMatchService.emitToMatch(
+			matchId,
+			SocketEvents.MATCH_STARTED,
+			match.type,
+		);
 	}
 
 	private getPlayerSide(match: MatchEntity, playerId: string) {
@@ -492,6 +582,7 @@ export class MatchService {
 		matchSessionId: number,
 		matchType: MatchType,
 	) {
+		const draftSequence = this.getDraftSequence(matchType);
 		const lockedSlots = await this.banPickSlotRepo.find({
 			where: {
 				matchSessionId,
@@ -508,14 +599,14 @@ export class MatchService {
 			},
 		});
 
-		if (lockedSlots.length !== DRAFT_SEQUENCE.length) {
+		if (lockedSlots.length !== draftSequence.length) {
 			throw new SessionCompletionValidationError(
 				"Cannot complete session before ban/pick draft is fully completed",
 			);
 		}
 
 		lockedSlots.forEach((slot, index) => {
-			const expectedAction = DRAFT_SEQUENCE[index];
+			const expectedAction = draftSequence[index];
 			if (!expectedAction) {
 				throw new SessionCompletionValidationError(
 					"Draft contains unexpected extra action",
@@ -641,6 +732,113 @@ export class MatchService {
 		return playerSide === PlayerSide.BLUE ? "BLUE" : "RED";
 	}
 
+	private isHost(match: MatchEntity, playerId: string) {
+		return match.hostId === playerId;
+	}
+
+	private isDraftCompleted(matchState: MatchStateEntity, matchType: MatchType) {
+		const totalDraftActions = this.getDraftSequence(matchType).length;
+		const completedActions =
+			matchState.blueBanChars.length +
+			matchState.redBanChars.length +
+			matchState.blueSelectedChars.length +
+			matchState.redSelectedChars.length;
+
+		return completedActions >= totalDraftActions;
+	}
+
+	private async initializeThreeVsThreeTeamCosts(
+		match: MatchEntity,
+		matchSessionId: number,
+		updatedBy: string,
+	) {
+		let sessionCost = await this.sessionCostRepo.findOne({
+			where: { matchSessionId },
+		});
+
+		if (!sessionCost) {
+			sessionCost = await this.sessionCostRepo.save(
+				this.sessionCostRepo.create({
+					matchSessionId,
+					blueTotalCost: 0,
+					blueCostMilestone: 0,
+					blueConstellationCost: 0,
+					blueRefinementCost: 0,
+					blueLevelCost: 0,
+					blueTimeBonusCost: 0,
+					redTotalCost: 0,
+					redCostMilestone: 0,
+					redConstellationCost: 0,
+					redRefinementCost: 0,
+					redLevelCost: 0,
+					redTimeBonusCost: 0,
+				}),
+			);
+		}
+
+		for (const teamSide of [PlayerSide.BLUE, PlayerSide.RED]) {
+			const defaultAccountId =
+				teamSide === PlayerSide.BLUE ? match.bluePlayerId : match.redPlayerId;
+
+			for (let chamberIndex = 1; chamberIndex <= 3; chamberIndex += 1) {
+				const existing = await this.teamCostRepo.findOne({
+					where: {
+						matchSessionId,
+						sessionCostId: sessionCost.id,
+						teamSide,
+						chamberIndex,
+					},
+				});
+
+				if (!existing) {
+					await this.teamCostRepo.save(
+						this.teamCostRepo.create({
+							matchSessionId,
+							sessionCostId: sessionCost.id,
+							teamSide,
+							chamberIndex,
+							accountId: defaultAccountId,
+							totalCharacterConstellationCost: 0,
+							totalWeaponRefinementCost: 0,
+							totalCharacterLevelCost: 0,
+							totalChamberTimeBonus: 0,
+							isUsedStar: false,
+						}),
+					);
+				}
+
+				await this.recalculateChamberTeamCost(
+					match.id,
+					matchSessionId,
+					teamSide,
+					chamberIndex,
+					updatedBy,
+				);
+			}
+		}
+	}
+
+	private async initializeThreeVsThreeTeamCostsIfDraftCompleted(
+		match: MatchEntity,
+		matchSessionId: number,
+		matchState: MatchStateEntity,
+		updatedBy: string,
+	) {
+		if (match.type !== MatchType.THREE_VS_THREE) {
+			return;
+		}
+
+		if (!this.isDraftCompleted(matchState, match.type)) {
+			return;
+		}
+
+		await this.initializeThreeVsThreeTeamCosts(
+			match,
+			matchSessionId,
+			updatedBy,
+		);
+	}
+
 	private async createBanPickSlot(
 		matchSessionId: number,
 		playerSide: PlayerSide,
@@ -659,6 +857,7 @@ export class MatchService {
 				where: {
 					matchSessionId,
 					matchSide: normalizedSide,
+					slotType,
 				},
 			}),
 		]);
@@ -676,9 +875,15 @@ export class MatchService {
 		});
 	}
 
-	@Transactional()
-	async pickChar(matchId: string, charId: number) {
-		const playerId = this.cls.get("profile.id");
+	private async pickCharByPlayer(
+		matchId: string,
+		charId: number,
+		playerId: string,
+	) {
+		if (!playerId) {
+			throw new MatchNotFoundError();
+		}
+
 		const match = await this.findOne(matchId);
 		if ([MatchStatus.COMPLETED, MatchStatus.CANCELLED].includes(match.status)) {
 			throw new MatchAlreadyCompletedError();
@@ -692,15 +897,28 @@ export class MatchService {
 
 		this.ensureCorrectTurn(matchState, playerSide);
 
-		const selectedAccountCharacter = await this.accountCharacterRepo.findOne({
-			where: {
-				characterId: charId,
-				accountId: playerId,
-			},
-		});
+		if (match.type === MatchType.THREE_VS_THREE) {
+			const selectedCharacter = await this.characterRepo.findOne({
+				where: {
+					id: charId,
+					isActive: true,
+				},
+			});
 
-		if (!selectedAccountCharacter) {
-			throw new AccountCharacterNotFoundError();
+			if (!selectedCharacter) {
+				throw new AccountCharacterNotFoundError();
+			}
+		} else {
+			const selectedAccountCharacter = await this.accountCharacterRepo.findOne({
+				where: {
+					characterId: charId,
+					accountId: playerId,
+				},
+			});
+
+			if (!selectedAccountCharacter) {
+				throw new AccountCharacterNotFoundError();
+			}
 		}
 
 		await this.ensureCharacterNotUsedInSession(matchSession.id, charId);
@@ -712,6 +930,133 @@ export class MatchService {
 			charId,
 			playerId,
 		);
+		const savedMatchState = await this.saveAndBroadcastMatchState(
+			matchId,
+			match,
+		);
+		await this.initializeThreeVsThreeTeamCostsIfDraftCompleted(
+			match,
+			matchSession.id,
+			savedMatchState,
+			playerId,
+		);
+	}
+
+	@Transactional()
+	async pickChar(matchId: string, charId: number) {
+		const playerId = this.cls.get("profile.id");
+		await this.pickCharByPlayer(matchId, charId, playerId);
+	}
+
+	@Transactional()
+	async banCharFromSocket(matchId: string, charId: number, playerId: string) {
+		if (!playerId) {
+			throw new MatchNotFoundError();
+		}
+
+		const match = await this.findOne(matchId);
+		if ([MatchStatus.COMPLETED, MatchStatus.CANCELLED].includes(match.status)) {
+			throw new MatchAlreadyCompletedError();
+		}
+		const matchState = await this.matchStateRepo.findOneOrCreate(matchId);
+		const matchSession = await this.getCurrentMatchSession(match, matchState);
+		const playerSide = this.getPlayerSide(match, playerId);
+		if (playerSide === null) {
+			throw new MatchNotFoundError();
+		}
+
+		this.ensureCorrectTurn(matchState, playerSide);
+		await this.ensureCharacterNotUsedInSession(matchSession.id, charId);
+
+		await this.createBanPickSlot(
+			matchSession.id,
+			playerSide,
+			"BAN",
+			charId,
+			playerId,
+		);
+		const savedMatchState = await this.saveAndBroadcastMatchState(
+			matchId,
+			match,
+		);
+		await this.initializeThreeVsThreeTeamCostsIfDraftCompleted(
+			match,
+			matchSession.id,
+			savedMatchState,
+			playerId,
+		);
+	}
+
+	@Transactional()
+	async pickCharFromSocket(matchId: string, charId: number, playerId: string) {
+		await this.pickCharByPlayer(matchId, charId, playerId);
+	}
+
+	@Transactional()
+	async swapBanPickSlotTeamOrderFromSocket(
+		matchId: string,
+		side: "blue" | "red",
+		sourceTeamOrder: number,
+		targetTeamOrder: number,
+		playerId: string,
+	) {
+		const match = await this.findOne(matchId);
+		if ([MatchStatus.COMPLETED, MatchStatus.CANCELLED].includes(match.status)) {
+			throw new MatchAlreadyCompletedError();
+		}
+
+		const matchState = await this.matchStateRepo.findOneOrCreate(matchId);
+		const matchSession = await this.getCurrentMatchSession(match, matchState);
+		const playerSide = this.getPlayerSide(match, playerId);
+		if (playerSide === null) {
+			throw new MatchNotFoundError();
+		}
+
+		const normalizedPayloadSide =
+			side === "blue" ? PlayerSide.BLUE : PlayerSide.RED;
+		const isHost = this.isHost(match, playerId);
+		if (!isHost && playerSide !== normalizedPayloadSide) {
+			throw new BadRequestException("Cannot reorder the opponent side slots");
+		}
+
+		if (sourceTeamOrder === targetTeamOrder) {
+			return;
+		}
+
+		const normalizedSide = this.normalizePlayerSide(normalizedPayloadSide);
+		const slotsToSwap = await this.banPickSlotRepo.find({
+			where: {
+				matchSessionId: matchSession.id,
+				matchSide: normalizedSide,
+				slotType: "PICK",
+				slotStatus: "LOCKED",
+				teamOrder: In([sourceTeamOrder, targetTeamOrder]),
+			},
+			select: {
+				id: true,
+				teamOrder: true,
+			},
+		});
+
+		if (slotsToSwap.length !== 2) {
+			throw new BadRequestException("Invalid team order swap payload");
+		}
+
+		const sourceSlot = slotsToSwap.find(
+			(slot) => slot.teamOrder === sourceTeamOrder,
+		);
+		const targetSlot = slotsToSwap.find(
+			(slot) => slot.teamOrder === targetTeamOrder,
+		);
+
+		if (!sourceSlot || !targetSlot) {
+			throw new BadRequestException("Invalid team order swap payload");
+		}
+
+		sourceSlot.teamOrder = targetTeamOrder;
+		targetSlot.teamOrder = sourceTeamOrder;
+
+		await this.banPickSlotRepo.save([sourceSlot, targetSlot]);
 		await this.saveAndBroadcastMatchState(matchId, match);
 	}
 
@@ -740,7 +1085,16 @@ export class MatchService {
 			charId,
 			playerId,
 		);
-		await this.saveAndBroadcastMatchState(matchId, match);
+		const savedMatchState = await this.saveAndBroadcastMatchState(
+			matchId,
+			match,
+		);
+		await this.initializeThreeVsThreeTeamCostsIfDraftCompleted(
+			match,
+			matchSession.id,
+			savedMatchState,
+			playerId,
+		);
 	}
 
 	@Transactional()
@@ -846,6 +1200,313 @@ export class MatchService {
 			matchId,
 			SocketEvents.UPDATE_MATCH_SESSION,
 			{ matchSessionId: savedMatchState.currentSession },
+		);
+	}
+
+	@Transactional()
+	async updateSlotBuild(
+		matchId: string,
+		teamOrder: number,
+		characterId: number,
+		characterConstellation: number,
+		weaponRefinement: number,
+		characterLevel: number,
+	) {
+		const playerId = this.cls.get("profile.id");
+		await this.updateSlotBuildByPlayer(
+			matchId,
+			teamOrder,
+			characterId,
+			characterConstellation,
+			weaponRefinement,
+			characterLevel,
+			playerId,
+		);
+	}
+
+	@Transactional()
+	async updateSlotBuildFromSocket(
+		matchId: string,
+		side: "blue" | "red",
+		teamOrder: number,
+		characterId: number,
+		characterConstellation: number,
+		weaponRefinement: number,
+		characterLevel: number,
+		playerId: string,
+	) {
+		await this.updateSlotBuildByPlayer(
+			matchId,
+			teamOrder,
+			characterId,
+			characterConstellation,
+			weaponRefinement,
+			characterLevel,
+			playerId,
+			side,
+		);
+	}
+
+	@Transactional()
+	async updateTeamCostFromSocket(
+		matchId: string,
+		teamSide: "blue" | "red",
+		chamberIndex: number,
+		accountId: string,
+		isUsedStar: boolean,
+		playerId: string,
+	) {
+		const match = await this.findOne(matchId);
+		if ([MatchStatus.COMPLETED, MatchStatus.CANCELLED].includes(match.status)) {
+			throw new MatchAlreadyCompletedError();
+		}
+
+		if (chamberIndex < 1 || chamberIndex > 3) {
+			throw new BadRequestException("Invalid chamber index");
+		}
+
+		const expectedSide =
+			teamSide === "blue" ? match.bluePlayerId : match.redPlayerId;
+		const isHost = this.isHost(match, playerId);
+		if (expectedSide !== playerId && !isHost) {
+			throw new BadRequestException(
+				"Cannot update. You are not host or side owner",
+			);
+		}
+
+		const matchState = await this.matchStateRepo.findOneOrCreate(matchId);
+		const matchSession = await this.getCurrentMatchSession(match, matchState);
+		const sessionCost = await this.sessionCostRepo.findOne({
+			where: { matchSessionId: matchSession.id },
+		});
+
+		if (!sessionCost) {
+			throw new BadRequestException("Session cost not found");
+		}
+
+		const normalizedSide =
+			teamSide === "blue" ? PlayerSide.BLUE : PlayerSide.RED;
+		const teamCost = await this.teamCostRepo.findOne({
+			where: {
+				matchSessionId: matchSession.id,
+				sessionCostId: sessionCost.id,
+				teamSide: normalizedSide,
+				chamberIndex,
+			},
+		});
+
+		const savedTeamCost =
+			teamCost ??
+			this.teamCostRepo.create({
+				matchSessionId: matchSession.id,
+				sessionCostId: sessionCost.id,
+				teamSide: normalizedSide,
+				chamberIndex,
+				accountId,
+				totalCharacterConstellationCost: 0,
+				totalWeaponRefinementCost: 0,
+				totalCharacterLevelCost: 0,
+				totalChamberTimeBonus: 0,
+				isUsedStar,
+			});
+
+		if (teamCost) {
+			teamCost.accountId = accountId;
+			teamCost.isUsedStar = isUsedStar;
+		}
+
+		await this.teamCostRepo.save(savedTeamCost);
+
+		await this.recalculateChamberTeamCost(
+			matchId,
+			matchSession.id,
+			normalizedSide,
+			chamberIndex,
+			playerId,
+		);
+	}
+
+	private async updateSlotBuildByPlayer(
+		matchId: string,
+		teamOrder: number,
+		characterId: number,
+		characterConstellation: number,
+		weaponRefinement: number,
+		characterLevel: number,
+		playerId: string,
+		side?: "blue" | "red",
+	) {
+		const match = await this.findOne(matchId);
+		if ([MatchStatus.COMPLETED, MatchStatus.CANCELLED].includes(match.status)) {
+			throw new MatchAlreadyCompletedError();
+		}
+
+		if (teamOrder <= 0) {
+			throw new BadRequestException("Invalid team order");
+		}
+
+		if (
+			characterConstellation < 0 ||
+			weaponRefinement < 0 ||
+			characterLevel < 0
+		) {
+			throw new BadRequestException("Invalid slot build values");
+		}
+
+		const matchState = await this.matchStateRepo.findOneOrCreate(matchId);
+		const matchSession = await this.getCurrentMatchSession(match, matchState);
+		const playerSide = this.getPlayerSide(match, playerId);
+		if (playerSide === null) {
+			throw new MatchNotFoundError();
+		}
+
+		if (side) {
+			const normalizedPayloadSide =
+				side === "blue" ? PlayerSide.BLUE : PlayerSide.RED;
+			const isHost = this.isHost(match, playerId);
+			if (!isHost && playerSide !== normalizedPayloadSide) {
+				throw new BadRequestException(
+					"Cannot update. You are not host or side owner",
+				);
+			}
+		}
+
+		const normalizedSide = this.normalizePlayerSide(playerSide);
+		const slot = await this.banPickSlotRepo.findOne({
+			where: {
+				matchSessionId: matchSession.id,
+				matchSide: normalizedSide,
+				slotType: "PICK",
+				slotStatus: "LOCKED",
+				teamOrder,
+			},
+		});
+
+		if (!slot || slot.characterId !== characterId) {
+			throw new BadRequestException("Invalid slot build target");
+		}
+
+		slot.characterConstellation = characterConstellation;
+		slot.weaponRefinement = weaponRefinement;
+		slot.characterLevel = characterLevel;
+		await this.banPickSlotRepo.save(slot);
+
+		const chamberIndex = Math.min(3, Math.ceil(teamOrder / CHAMBER_SLOT_COUNT));
+		await this.recalculateChamberTeamCost(
+			matchId,
+			matchSession.id,
+			playerSide,
+			chamberIndex,
+			playerId,
+		);
+	}
+
+	private getCharacterLevelTimeCost(level: number) {
+		if (level === 95) {
+			return 1;
+		}
+
+		if (level === 100) {
+			return 2;
+		}
+
+		return 0;
+	}
+
+	private async recalculateChamberTeamCost(
+		matchId: string,
+		matchSessionId: number,
+		teamSide: PlayerSide,
+		chamberIndex: number,
+		updatedBy: string,
+	) {
+		const sessionCost = await this.sessionCostRepo.findOne({
+			where: { matchSessionId },
+		});
+		if (!sessionCost) {
+			return;
+		}
+
+		const teamCost = await this.teamCostRepo.findOne({
+			where: {
+				matchSessionId,
+				sessionCostId: sessionCost.id,
+				teamSide,
+				chamberIndex,
+			},
+		});
+		if (!teamCost) {
+			return;
+		}
+
+		const matchSide = this.normalizePlayerSide(teamSide);
+		const startTeamOrder = (chamberIndex - 1) * CHAMBER_SLOT_COUNT + 1;
+		const endTeamOrder = chamberIndex * CHAMBER_SLOT_COUNT;
+		const slots = await this.banPickSlotRepo.find({
+			where: {
+				matchSessionId,
+				matchSide,
+				slotType: "PICK",
+				slotStatus: "LOCKED",
+				teamOrder: Between(startTeamOrder, endTeamOrder),
+			},
+		});
+
+		const characterCostCache = new Map<string, number>();
+		let totalConstellationCost = 0;
+		let totalRefinementCost = 0;
+		let totalLevelCost = 0;
+
+		for (const slot of slots) {
+			totalRefinementCost += slot.weaponRefinement ?? 0;
+			totalLevelCost += this.getCharacterLevelTimeCost(
+				slot.characterLevel ?? 0,
+			);
+
+			if (!slot.characterId) {
+				continue;
+			}
+
+			const constellation = slot.characterConstellation ?? 0;
+			const cacheKey = `${slot.characterId}:${constellation}`;
+			let characterCostValue = characterCostCache.get(cacheKey);
+			if (characterCostValue === undefined) {
+				const characterCost = await this.characterCostRepo.findOne({
+					where: { characterId: slot.characterId, constellation },
+					select: { cost: true },
+				});
+				characterCostValue = Number(characterCost?.cost) || 0;
+				characterCostCache.set(cacheKey, characterCostValue);
+			}
+
+			totalConstellationCost += characterCostValue;
+		}
+
+		teamCost.totalCharacterConstellationCost = totalConstellationCost;
+		teamCost.totalWeaponRefinementCost = totalRefinementCost;
+		teamCost.totalCharacterLevelCost = totalLevelCost;
+		teamCost.totalChamberTimeBonus =
+			totalConstellationCost * CHAMBER_CONSTELLATION_COST_MULTIPLIER +
+			totalRefinementCost * CHAMBER_REFINEMENT_COST_MULTIPLIER +
+			totalLevelCost;
+
+		await this.teamCostRepo.save(teamCost);
+
+		this.socketMatchService.emitToMatch(
+			matchId,
+			SocketEvents.UPDATE_TEAM_COST,
+			{
+				teamSide: teamSide === PlayerSide.BLUE ? "blue" : "red",
+				chamberIndex,
+				accountId: teamCost.accountId,
+				isUsedStar: teamCost.isUsedStar,
+				totalCharacterConstellationCost:
+					teamCost.totalCharacterConstellationCost,
+				totalWeaponRefinementCost: teamCost.totalWeaponRefinementCost,
+				totalCharacterLevelCost: teamCost.totalCharacterLevelCost,
+				totalChamberTimeBonus: teamCost.totalChamberTimeBonus,
+				updatedBy,
+			},
 		);
 	}
 

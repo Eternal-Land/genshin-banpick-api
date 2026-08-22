@@ -114,6 +114,12 @@ class MatchSessionReportItemResponse {
 	@ApiProperty({ type: Number, nullable: true })
 	redResultTotal: number | null;
 
+	@ApiProperty()
+	blueTimeBonus: number;
+
+	@ApiProperty()
+	redTimeBonus: number;
+
 	@ApiProperty({ type: Number, nullable: true })
 	resultDifference: number | null;
 
@@ -151,9 +157,14 @@ export class MatchReportDetailResponse {
 
 	private static resolveWinner(
 		record?: SessionRecordEntity | null,
-		cost?: SessionCostEntity | null,
+		blueTimeBonus = 0,
+		redTimeBonus = 0,
 	): PlayerSide | null {
-		const totals = this.resolveResultTotals(record, cost);
+		const totals = this.resolveResultTotals(
+			record,
+			blueTimeBonus,
+			redTimeBonus,
+		);
 		if (!totals) {
 			return null;
 		}
@@ -169,20 +180,21 @@ export class MatchReportDetailResponse {
 
 	private static resolveResultTotals(
 		record?: SessionRecordEntity | null,
-		cost?: SessionCostEntity | null,
+		blueTimeBonus = 0,
+		redTimeBonus = 0,
 	): { blueTotalTime: number; redTotalTime: number } | null {
 		if (!record) {
 			return null;
 		}
 
 		const blueTotalTime =
-			Number(cost?.blueTimeBonusCost ?? 0) +
+			blueTimeBonus +
 			Math.max(0, Number(record.blueChamber1)) +
 			Math.max(0, Number(record.blueChamber2)) +
 			Math.max(0, Number(record.blueChamber3));
 
 		const redTotalTime =
-			Number(cost?.redTimeBonusCost ?? 0) +
+			redTimeBonus +
 			Math.max(0, Number(record.redChamber1)) +
 			Math.max(0, Number(record.redChamber2)) +
 			Math.max(0, Number(record.redChamber3));
@@ -195,12 +207,31 @@ export class MatchReportDetailResponse {
 		sessions: MatchSessionEntity[],
 		recordsBySessionId: Map<number, SessionRecordEntity>,
 		costsBySessionId: Map<number, SessionCostEntity>,
+		teamTimeBonusBySessionId: Map<
+			number,
+			{ blueTimeBonus: number; redTimeBonus: number }
+		>,
 	): MatchReportDetailResponse {
 		const mappedSessions = sessions.map((session) => {
 			const record = recordsBySessionId.get(session.id) ?? null;
 			const cost = costsBySessionId.get(session.id) ?? null;
-			const winnerSide = this.resolveWinner(record, cost);
-			const resultTotals = this.resolveResultTotals(record, cost);
+			const teamBonus = teamTimeBonusBySessionId.get(session.id);
+			const blueTimeBonus = Number(
+				teamBonus?.blueTimeBonus ?? cost?.blueTimeBonusCost ?? 0,
+			);
+			const redTimeBonus = Number(
+				teamBonus?.redTimeBonus ?? cost?.redTimeBonusCost ?? 0,
+			);
+			const winnerSide = this.resolveWinner(
+				record,
+				blueTimeBonus,
+				redTimeBonus,
+			);
+			const resultTotals = this.resolveResultTotals(
+				record,
+				blueTimeBonus,
+				redTimeBonus,
+			);
 			return Builder(MatchSessionReportItemResponse)
 				.matchSessionId(session.id)
 				.sessionIndex(session.sessionIndex)
@@ -223,6 +254,8 @@ export class MatchReportDetailResponse {
 				.redFinalTime(record?.redFinalTime ?? null)
 				.blueResultTotal(resultTotals?.blueTotalTime ?? null)
 				.redResultTotal(resultTotals?.redTotalTime ?? null)
+				.blueTimeBonus(blueTimeBonus)
+				.redTimeBonus(redTimeBonus)
 				.resultDifference(
 					resultTotals
 						? Math.abs(resultTotals.blueTotalTime - resultTotals.redTotalTime)

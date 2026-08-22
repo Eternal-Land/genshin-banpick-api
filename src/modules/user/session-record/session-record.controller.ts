@@ -47,6 +47,7 @@ export class UserSessionRecordController {
 				report.sessions,
 				report.recordsBySessionId,
 				report.costsBySessionId,
+				report.teamTimeBonusBySessionId,
 			),
 		);
 	}
