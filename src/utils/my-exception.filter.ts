@@ -4,10 +4,11 @@ import {
 	Catch,
 	HttpException,
 } from "@nestjs/common";
-import { Response } from "express";
+import { Request, Response } from "express";
 import { BaseApiResponse } from "./dto/base-api-response";
 import { ErrorCode } from "./enums/error-code";
 import { ApiError } from "@errors";
+import * as dayjs from "dayjs";
 
 @Catch()
 export class MyExceptionFilter implements ExceptionFilter {
@@ -18,7 +19,6 @@ export class MyExceptionFilter implements ExceptionFilter {
 	 * @param host The arguments host providing access to the request/response objects.
 	 */
 	catch(exception: any, host: ArgumentsHost) {
-		console.error(exception);
 		const res = host.switchToHttp().getResponse<Response>();
 
 		if (exception instanceof ApiError) {
@@ -32,6 +32,12 @@ export class MyExceptionFilter implements ExceptionFilter {
 					),
 				);
 		}
+
+		const req = host.switchToHttp().getRequest<Request>();
+		console.log(
+			`EXCEPTION [${req.ip}] [${dayjs().format("YYYY-MM-DD HH:mm:ss")}] [${req.method}] [${req.url}]`,
+		);
+		console.error(exception);
 
 		if (exception instanceof HttpException) {
 			return res
