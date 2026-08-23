@@ -3,7 +3,7 @@ import { DbModule } from "@db";
 import { PermissionModule } from "@modules/admin/permission";
 import { CharacterModule } from "@modules/admin/character";
 import { StaffRoleModule } from "@modules/admin/role";
-import { APP_GUARD } from "@nestjs/core";
+import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { AuthGuard, AuthModule } from "@modules/auth";
 import { ClsModule } from "nestjs-cls";
 import { StaffModule } from "@modules/admin/staff";
@@ -29,6 +29,7 @@ import { UserSessionRecordModule } from "@modules/user/session-record";
 import { UserCharacterCostModule } from "@modules/user/character-cost";
 import { UserWeaponCostModule } from "@modules/user/weapon-cost";
 import { UserSessionStateModule } from "@modules/user/session-state";
+import { ApiLoggerInterceptor } from "@utils";
 
 @Module({
 	imports: [
@@ -72,6 +73,10 @@ import { UserSessionStateModule } from "@modules/user/session-state";
 		{
 			provide: APP_GUARD,
 			useClass: AuthGuard,
+		},
+		{
+			provide: APP_INTERCEPTOR,
+			useClass: ApiLoggerInterceptor,
 		},
 	],
 })
