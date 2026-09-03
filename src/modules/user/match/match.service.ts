@@ -1507,7 +1507,10 @@ export class MatchService {
 		let totalLevelCost = 0;
 
 		for (const slot of slots) {
-			totalRefinementCost += slot.weaponRefinement ?? 0;
+			if (slot.weaponRefinement >= 1) {
+				totalRefinementCost += slot.weaponRefinement - 1;
+				totalConstellationCost += 1;
+			}
 			totalLevelCost += this.getCharacterLevelTimeCost(
 				slot.characterLevel ?? 0,
 			);
