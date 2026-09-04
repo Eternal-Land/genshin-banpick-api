@@ -59,6 +59,18 @@ const THREE_VS_THREE_BANS_PER_SIDE = 1;
 const CHAMBER_SLOT_COUNT = 8;
 const CHAMBER_CONSTELLATION_COST_MULTIPLIER = 5;
 const CHAMBER_REFINEMENT_COST_MULTIPLIER = 2;
+const CHARACTER_LEVEL_COUNTED_LIST = [
+	"mavuika",
+	"zibai",
+	"flins",
+	"mualani",
+	"skirk",
+	"neuvillette",
+	"sandrone",
+	"wriothesley",
+	"varesa",
+	"kinich",
+];
 
 const DRAFT_SEQUENCE: DraftAction[] = [
 	{ side: PlayerSide.BLUE, type: "ban" },
@@ -1069,12 +1081,15 @@ export class MatchService {
 			select: {
 				id: true,
 				teamOrder: true,
+				weaponRefinement: true,
 			},
 		});
 
 		if (slotsToSwap.length !== 2) {
 			throw new BadRequestException("Invalid team order swap payload");
 		}
+
+		console.log("Slots to swap:", slotsToSwap);
 
 		const sourceSlot = slotsToSwap.find(
 			(slot) => slot.teamOrder === sourceTeamOrder,
@@ -1507,13 +1522,27 @@ export class MatchService {
 		let totalLevelCost = 0;
 
 		for (const slot of slots) {
+			if (slot.weaponRefinement === 0.5) {
+				totalConstellationCost += 0.5;
+			}
+
 			if (slot.weaponRefinement >= 1) {
 				totalRefinementCost += slot.weaponRefinement - 1;
 				totalConstellationCost += 1;
 			}
-			totalLevelCost += this.getCharacterLevelTimeCost(
-				slot.characterLevel ?? 0,
-			);
+
+			const currentSlotCharacter = await this.characterRepo.findOne({
+				where: { id: slot.characterId },
+			});
+			if (
+				CHARACTER_LEVEL_COUNTED_LIST.includes(
+					currentSlotCharacter.key.toString().toLowerCase(),
+				)
+			) {
+				totalLevelCost += this.getCharacterLevelTimeCost(
+					slot.characterLevel ?? 0,
+				);
+			}
 
 			if (!slot.characterId) {
 				continue;
