@@ -1,6 +1,7 @@
 import { ColumnNames, TableNames } from "@db/db.constants";
 import {
 	Column,
+	CreateDateColumn,
 	Entity,
 	Index,
 	JoinColumn,
@@ -78,4 +79,38 @@ export class MatchStateEntity {
 
 	@UpdateDateColumn({ name: ColumnNames.Global.updatedAt, type: "datetime" })
 	updatedAt: Date;
+
+	@CreateDateColumn({
+		name: ColumnNames.MatchState.startedAt,
+		type: "datetime",
+	})
+	startedAt: Date;
+
+	@Column({
+		name: ColumnNames.MatchState.pausedAt,
+		type: "datetime",
+		nullable: true,
+	})
+	pausedAt: Date;
+
+	@Column({
+		name: ColumnNames.MatchState.redTimeRemain,
+		type: "int",
+		default: 0,
+	})
+	redTimeRemain: number;
+
+	@Column({
+		name: ColumnNames.MatchState.blueTimeRemain,
+		type: "int",
+		default: 0,
+	})
+	blueTimeRemain: number;
+
+	@Column({
+		name: ColumnNames.MatchState.turnExpiredAt,
+		type: "datetime",
+		nullable: true,
+	})
+	turnExpiredAt: Date;
 }
