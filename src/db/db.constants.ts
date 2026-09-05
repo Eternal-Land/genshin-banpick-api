@@ -148,6 +148,8 @@ export const ColumnNames = {
 		pausedAt: "paused_at",
 		redTimeRemain: "red_time_remain",
 		blueTimeRemain: "blue_time_remain",
+		lastRedTimeRemain: "last_red_time_remain",
+		lastBlueTimeRemain: "last_blue_time_remain",
 		turnExpiredAt: "turn_expired_at",
 	},
 	BanPickSlot: {

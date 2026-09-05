@@ -108,6 +108,20 @@ export class MatchStateEntity {
 	blueTimeRemain: number;
 
 	@Column({
+		name: ColumnNames.MatchState.lastRedTimeRemain,
+		type: "int",
+		nullable: true,
+	})
+	lastRedTimeRemain: number | null;
+
+	@Column({
+		name: ColumnNames.MatchState.lastBlueTimeRemain,
+		type: "int",
+		nullable: true,
+	})
+	lastBlueTimeRemain: number | null;
+
+	@Column({
 		name: ColumnNames.MatchState.turnExpiredAt,
 		type: "datetime",
 		nullable: true,

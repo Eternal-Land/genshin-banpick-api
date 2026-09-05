@@ -222,6 +222,8 @@ export class MatchService {
 			redBanChars: [],
 			redSelectedChars: [],
 			redSelectedWeapons: [],
+			lastBlueTimeRemain: null,
+			lastRedTimeRemain: null,
 		});
 
 		if (match.type === MatchType.THREE_VS_THREE) {
@@ -695,6 +697,9 @@ export class MatchService {
 		if (overtimeSeconds <= 0) {
 			return;
 		}
+
+		matchState.lastBlueTimeRemain = matchState.blueTimeRemain;
+		matchState.lastRedTimeRemain = matchState.redTimeRemain;
 
 		if (playerSide === PlayerSide.BLUE) {
 			matchState.blueTimeRemain -= overtimeSeconds;
@@ -1205,6 +1210,18 @@ export class MatchService {
 		}
 
 		await this.banPickSlotRepo.delete({ id: lastLockedSlot.id });
+
+		if (
+			typeof matchState.lastBlueTimeRemain === "number" &&
+			typeof matchState.lastRedTimeRemain === "number"
+		) {
+			matchState.blueTimeRemain = matchState.lastBlueTimeRemain;
+			matchState.redTimeRemain = matchState.lastRedTimeRemain;
+			matchState.lastBlueTimeRemain = null;
+			matchState.lastRedTimeRemain = null;
+			await this.matchStateRepo.save(matchState);
+		}
+
 		await this.saveAndBroadcastMatchState(matchId, match);
 	}
 
@@ -1940,6 +1957,8 @@ export class MatchService {
 						currentTurn: PlayerSide.BLUE,
 						pausedAt: null,
 						turnExpiredAt: null,
+						lastBlueTimeRemain: null,
+						lastRedTimeRemain: null,
 						blueBanChars: [],
 						blueSelectedChars: [],
 						blueSelectedWeapons: [],
