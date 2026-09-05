@@ -1219,8 +1219,16 @@ export class MatchService {
 			matchState.redTimeRemain = matchState.lastRedTimeRemain;
 			matchState.lastBlueTimeRemain = null;
 			matchState.lastRedTimeRemain = null;
-			await this.matchStateRepo.save(matchState);
 		}
+
+		if (match.type === MatchType.THREE_VS_THREE) {
+			matchState.turnExpiredAt = new Date(
+				Date.now() + TURN_DURATION_SECONDS * 1000,
+			);
+			matchState.pausedAt = null;
+		}
+
+		await this.matchStateRepo.save(matchState);
 
 		await this.saveAndBroadcastMatchState(matchId, match);
 	}
