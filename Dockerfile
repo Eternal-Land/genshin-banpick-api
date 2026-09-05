@@ -1,16 +1,14 @@
 # Build with Yarn
-FROM node:22 AS builder
-RUN npm i -g bun
+FROM oven/bun:1 AS builder
 WORKDIR /app
 COPY package.json bun.lock ./
 RUN bun install
 COPY . .
 RUN bun run build
 
-FROM node:22 AS runner
-RUN npm i -g bun
+FROM oven/bun:1 AS runner
 WORKDIR /app
 COPY package.json bun.lock ./
 RUN bun install
 COPY --from=builder /app/dist ./
-CMD ["node", "main"]
+CMD ["bun", "run", "main.js"]
