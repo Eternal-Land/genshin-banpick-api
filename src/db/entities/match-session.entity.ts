@@ -11,7 +11,6 @@ import {
 import { MatchEntity } from "./match.entity";
 import { BanPickSlotEntity } from "./ban-pick-slot.entity";
 import { AccountEntity } from "./account.entity";
-import { PlayerSide } from "@utils/enums";
 import { MatchSessionStatus } from "@utils/enums";
 import { BaseAuditEntity } from "@utils/entities";
 
@@ -54,13 +53,6 @@ export class MatchSessionEntity extends BaseAuditEntity {
 	blueParticipant: AccountEntity;
 
 	@Column({
-		name: ColumnNames.MatchSession.currentTurn,
-		type: "int",
-		default: PlayerSide.BLUE,
-	})
-	currentTurn: PlayerSide;
-
-	@Column({
 		name: ColumnNames.MatchSession.totalCostBlue,
 		type: "decimal",
 		precision: 7,
@@ -86,4 +78,11 @@ export class MatchSessionEntity extends BaseAuditEntity {
 
 	@OneToMany(() => BanPickSlotEntity, (banPickSlot) => banPickSlot.matchSession)
 	banPickSlots: BanPickSlotEntity[];
+
+	@Column({
+		name: ColumnNames.MatchSession.startedAt,
+		type: "datetime",
+		nullable: true,
+	})
+	startedAt: Date;
 }

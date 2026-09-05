@@ -309,7 +309,7 @@ export class SocketGateway
 			!Number.isInteger(payload?.teamOrder) ||
 			!Number.isInteger(payload?.characterId) ||
 			!Number.isInteger(payload?.characterConstellation) ||
-			!Number.isInteger(payload?.weaponRefinement) ||
+			!Number.isFinite(payload?.weaponRefinement) ||
 			!Number.isInteger(payload?.characterLevel)
 		) {
 			return { ok: false };

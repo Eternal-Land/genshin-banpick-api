@@ -85,6 +85,22 @@ export class MatchController {
 		return BaseApiResponse.success();
 	}
 
+	@Put(":id/pause")
+	@SwaggerBaseApiMessageResponse()
+	@ApiBearerAuth()
+	async pauseMatchTimer(@Param("id", ParseUUIDPipe) id: string) {
+		await this.matchService.pauseMatchTimer(id);
+		return BaseApiResponse.success();
+	}
+
+	@Put(":id/resume")
+	@SwaggerBaseApiMessageResponse()
+	@ApiBearerAuth()
+	async resumeMatchTimer(@Param("id", ParseUUIDPipe) id: string) {
+		await this.matchService.resumeMatchTimer(id);
+		return BaseApiResponse.success();
+	}
+
 	@Post(":id/complete-session")
 	@SwaggerBaseApiMessageResponse()
 	@ApiBearerAuth()

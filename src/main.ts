@@ -49,6 +49,6 @@ async function bootstrap() {
 	}
 	app.use(helmet());
 
-	await app.listen(Env.LISTEN_PORT);
+	await app.listen(Env.LISTEN_PORT, "0.0.0.0");
 }
 bootstrap();

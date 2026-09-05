@@ -17,6 +17,11 @@ export class MatchStateResponse {
 	redSelectedWeapons: string[];
 	redSelectedWeaponRefinements: number[];
 	updatedAt: Date;
+	startedAt: Date;
+	pausedAt: Date | null;
+	turnExpiredAt: Date | null;
+	blueTimeRemain: number;
+	redTimeRemain: number;
 
 	static fromEntity(entity: MatchStateEntity): MatchStateResponse {
 		const matchState = entity as MatchStateEntity & {
@@ -43,6 +48,11 @@ export class MatchStateResponse {
 				matchState.redSelectedWeaponRefinements ?? [],
 			)
 			.updatedAt(entity.updatedAt)
+			.startedAt(entity.startedAt)
+			.pausedAt(entity.pausedAt)
+			.turnExpiredAt(entity.turnExpiredAt)
+			.blueTimeRemain(entity.blueTimeRemain)
+			.redTimeRemain(entity.redTimeRemain)
 			.build();
 	}
 }

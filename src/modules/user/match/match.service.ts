@@ -44,7 +44,7 @@ import {
 	WeaponPickRequiresSelectedCharacterError,
 } from "./errors";
 import { SocketMatchService } from "@modules/socket/services";
-import { SocketEvents } from "@utils/constants";
+import { SocketEvents, THREE_VS_THREE_TIME_REMAIN } from "@utils/constants";
 import { Between, In, Not } from "typeorm";
 import { UserSessionCostService } from "../session-cost";
 
@@ -54,11 +54,24 @@ interface DraftAction {
 }
 
 const RESET_TIME_PENALTY_SECONDS = 10;
+const TURN_DURATION_SECONDS = 30;
 const THREE_VS_THREE_PICKS_PER_SIDE = 24;
 const THREE_VS_THREE_BANS_PER_SIDE = 1;
 const CHAMBER_SLOT_COUNT = 8;
 const CHAMBER_CONSTELLATION_COST_MULTIPLIER = 5;
 const CHAMBER_REFINEMENT_COST_MULTIPLIER = 2;
+const CHARACTER_LEVEL_COUNTED_LIST = [
+	"mavuika",
+	"zibai",
+	"flins",
+	"mualani",
+	"skirk",
+	"neuvillette",
+	"sandrone",
+	"wriothesley",
+	"varesa",
+	"kinich",
+];
 
 const DRAFT_SEQUENCE: DraftAction[] = [
 	{ side: PlayerSide.BLUE, type: "ban" },
@@ -177,6 +190,11 @@ export class MatchService {
 	}
 
 	private async resetMatchState(matchId: string) {
+		const match = await this.matchRepo.findOne({ where: { id: matchId } });
+		if (!match) {
+			throw new MatchNotFoundError();
+		}
+
 		const existed = await this.matchStateRepo.findOne({
 			where: { matchId },
 		});
@@ -196,7 +214,7 @@ export class MatchService {
 			await this.matchSessionRepo.delete({ matchId });
 		}
 
-		await this.matchStateRepo.insert({
+		const newMatchState = this.matchStateRepo.create({
 			matchId,
 			blueBanChars: [],
 			blueSelectedChars: [],
@@ -204,12 +222,17 @@ export class MatchService {
 			redBanChars: [],
 			redSelectedChars: [],
 			redSelectedWeapons: [],
+			lastBlueTimeRemain: null,
+			lastRedTimeRemain: null,
 		});
 
-		const match = await this.matchRepo.findOne({ where: { id: matchId } });
-		if (!match) {
-			throw new MatchNotFoundError();
+		if (match.type === MatchType.THREE_VS_THREE) {
+			newMatchState.redTimeRemain = THREE_VS_THREE_TIME_REMAIN;
+			newMatchState.blueTimeRemain = THREE_VS_THREE_TIME_REMAIN;
 		}
+
+		await this.matchStateRepo.insert(newMatchState);
+
 		const sessions = await this.ensureMatchSessions(match);
 		const firstSession = sessions[0];
 		if (firstSession) {
@@ -376,6 +399,14 @@ export class MatchService {
 		match: MatchEntity,
 		matchState: MatchStateEntity,
 	) {
+		const previousDraftStep = Math.min(
+			matchState.blueBanChars.length +
+				matchState.blueSelectedChars.length +
+				matchState.redBanChars.length +
+				matchState.redSelectedChars.length,
+			this.getDraftSequence(match.type).length,
+		);
+
 		const draftSequence = this.getDraftSequence(match.type);
 		const currentSession = await this.getCurrentMatchSession(match, matchState);
 		const slots = await this.banPickSlotRepo.find({
@@ -404,10 +435,27 @@ export class MatchService {
 				matchState.redSelectedChars.length,
 			draftSequence.length,
 		);
+		const hasTurnAdvanced = draftStep > previousDraftStep;
 
 		const nextAction = draftSequence[draftStep];
 		if (nextAction && matchState.currentTurn !== nextAction.side) {
 			matchState.currentTurn = nextAction.side;
+		}
+
+		if (
+			match.type === MatchType.THREE_VS_THREE &&
+			match.status === MatchStatus.LIVE &&
+			nextAction
+		) {
+			if (!matchState.turnExpiredAt || hasTurnAdvanced) {
+				matchState.turnExpiredAt = new Date(
+					Date.now() + TURN_DURATION_SECONDS * 1000,
+				);
+				matchState.pausedAt = null;
+			}
+		} else {
+			matchState.turnExpiredAt = null;
+			matchState.pausedAt = null;
 		}
 
 		return await this.matchStateRepo.save(matchState);
@@ -495,10 +543,115 @@ export class MatchService {
 			isNotStarted: true,
 		});
 		await this.matchRepo.update(matchId, { status: MatchStatus.LIVE });
+		match.status = MatchStatus.LIVE;
+		await this.saveAndBroadcastMatchState(matchId, match);
 		this.socketMatchService.emitToMatch(
 			matchId,
 			SocketEvents.MATCH_STARTED,
 			match.type,
+		);
+	}
+
+	@Transactional()
+	async pauseMatchTimer(matchId: string) {
+		const playerId = this.cls.get("profile.id");
+		const match = await this.findOne(matchId);
+		if ([MatchStatus.COMPLETED, MatchStatus.CANCELLED].includes(match.status)) {
+			throw new MatchAlreadyCompletedError();
+		}
+
+		if (
+			playerId !== match.hostId &&
+			playerId !== match.bluePlayerId &&
+			playerId !== match.redPlayerId
+		) {
+			throw new ParticipantNotFoundError();
+		}
+
+		if (match.type !== MatchType.THREE_VS_THREE) {
+			throw new BadRequestException("Pause is only available for 3v3 match");
+		}
+
+		if (match.status !== MatchStatus.LIVE) {
+			throw new BadRequestException("Cannot pause a match that is not live");
+		}
+
+		const matchState = await this.matchStateRepo.findOneOrCreate(matchId);
+		const syncedMatchState = await this.syncMatchStateWithCurrentSession(
+			match,
+			matchState,
+		);
+
+		if (!syncedMatchState.turnExpiredAt) {
+			throw new BadRequestException("No active turn to pause");
+		}
+
+		if (!syncedMatchState.pausedAt) {
+			syncedMatchState.pausedAt = new Date();
+		}
+
+		const savedMatchState = await this.matchStateRepo.save(syncedMatchState);
+		this.socketMatchService.emitToMatch(
+			matchId,
+			SocketEvents.UPDATE_MATCH_STATE,
+			MatchStateResponse.fromEntity(savedMatchState),
+		);
+	}
+
+	@Transactional()
+	async resumeMatchTimer(matchId: string) {
+		const playerId = this.cls.get("profile.id");
+		const match = await this.findOne(matchId);
+		if ([MatchStatus.COMPLETED, MatchStatus.CANCELLED].includes(match.status)) {
+			throw new MatchAlreadyCompletedError();
+		}
+
+		if (
+			playerId !== match.hostId &&
+			playerId !== match.bluePlayerId &&
+			playerId !== match.redPlayerId
+		) {
+			throw new ParticipantNotFoundError();
+		}
+
+		if (match.type !== MatchType.THREE_VS_THREE) {
+			throw new BadRequestException("Resume is only available for 3v3 match");
+		}
+
+		if (match.status !== MatchStatus.LIVE) {
+			throw new BadRequestException("Cannot resume a match that is not live");
+		}
+
+		const matchState = await this.matchStateRepo.findOneOrCreate(matchId);
+		const syncedMatchState = await this.syncMatchStateWithCurrentSession(
+			match,
+			matchState,
+		);
+
+		if (!syncedMatchState.pausedAt) {
+			return;
+		}
+
+		const nowMs = Date.now();
+		const pausedAtMs = new Date(syncedMatchState.pausedAt).getTime();
+		if (Number.isFinite(pausedAtMs) && syncedMatchState.turnExpiredAt) {
+			const turnExpiredAtMs = new Date(
+				syncedMatchState.turnExpiredAt,
+			).getTime();
+			if (Number.isFinite(turnExpiredAtMs) && nowMs > pausedAtMs) {
+				syncedMatchState.turnExpiredAt = new Date(
+					turnExpiredAtMs + (nowMs - pausedAtMs),
+				);
+			}
+		}
+
+		syncedMatchState.pausedAt = null;
+
+		const savedMatchState = await this.matchStateRepo.save(syncedMatchState);
+		this.socketMatchService.emitToMatch(
+			matchId,
+			SocketEvents.UPDATE_MATCH_STATE,
+			MatchStateResponse.fromEntity(savedMatchState),
 		);
 	}
 
@@ -514,13 +667,47 @@ export class MatchService {
 		return null;
 	}
 
-	private ensureCorrectTurn(
+	private async ensureCorrectTurn(
 		matchState: MatchStateEntity,
+		matchType: MatchType,
 		playerSide: PlayerSide,
 	) {
 		if (matchState.currentTurn !== playerSide) {
 			throw new NotYourTurnError();
 		}
+
+		if (matchType !== MatchType.THREE_VS_THREE) {
+			return;
+		}
+
+		if (matchState.pausedAt) {
+			throw new BadRequestException("The match timer is paused");
+		}
+
+		if (!matchState.turnExpiredAt) {
+			return;
+		}
+
+		const turnExpiredAtMs = new Date(matchState.turnExpiredAt).getTime();
+		if (!Number.isFinite(turnExpiredAtMs)) {
+			return;
+		}
+
+		const overtimeSeconds = Math.ceil((Date.now() - turnExpiredAtMs) / 1000);
+		if (overtimeSeconds <= 0) {
+			return;
+		}
+
+		matchState.lastBlueTimeRemain = matchState.blueTimeRemain;
+		matchState.lastRedTimeRemain = matchState.redTimeRemain;
+
+		if (playerSide === PlayerSide.BLUE) {
+			matchState.blueTimeRemain -= overtimeSeconds;
+		} else {
+			matchState.redTimeRemain -= overtimeSeconds;
+		}
+
+		await this.matchStateRepo.save(matchState);
 	}
 
 	private async ensureCharacterNotUsedInSession(
@@ -898,7 +1085,7 @@ export class MatchService {
 			throw new MatchNotFoundError();
 		}
 
-		this.ensureCorrectTurn(matchState, playerSide);
+		await this.ensureCorrectTurn(matchState, match.type, playerSide);
 
 		if (match.type === MatchType.THREE_VS_THREE) {
 			const selectedCharacter = await this.characterRepo.findOne({
@@ -968,7 +1155,7 @@ export class MatchService {
 			throw new MatchNotFoundError();
 		}
 
-		this.ensureCorrectTurn(matchState, playerSide);
+		await this.ensureCorrectTurn(matchState, match.type, playerSide);
 		await this.ensureCharacterNotUsedInSession(matchSession.id, charId);
 
 		await this.createBanPickSlot(
@@ -1023,6 +1210,18 @@ export class MatchService {
 		}
 
 		await this.banPickSlotRepo.delete({ id: lastLockedSlot.id });
+
+		if (
+			typeof matchState.lastBlueTimeRemain === "number" &&
+			typeof matchState.lastRedTimeRemain === "number"
+		) {
+			matchState.blueTimeRemain = matchState.lastBlueTimeRemain;
+			matchState.redTimeRemain = matchState.lastRedTimeRemain;
+			matchState.lastBlueTimeRemain = null;
+			matchState.lastRedTimeRemain = null;
+			await this.matchStateRepo.save(matchState);
+		}
+
 		await this.saveAndBroadcastMatchState(matchId, match);
 	}
 
@@ -1069,12 +1268,15 @@ export class MatchService {
 			select: {
 				id: true,
 				teamOrder: true,
+				weaponRefinement: true,
 			},
 		});
 
 		if (slotsToSwap.length !== 2) {
 			throw new BadRequestException("Invalid team order swap payload");
 		}
+
+		console.log("Slots to swap:", slotsToSwap);
 
 		const sourceSlot = slotsToSwap.find(
 			(slot) => slot.teamOrder === sourceTeamOrder,
@@ -1119,7 +1321,7 @@ export class MatchService {
 			throw new MatchNotFoundError();
 		}
 
-		this.ensureCorrectTurn(matchState, playerSide);
+		await this.ensureCorrectTurn(matchState, match.type, playerSide);
 
 		await this.ensureCharacterNotUsedInSession(matchSession.id, charId);
 
@@ -1462,6 +1664,63 @@ export class MatchService {
 		return 0;
 	}
 
+	private calculatePunishTime(remainTimeSec: number) {
+		if (remainTimeSec >= 0) {
+			return 0;
+		}
+
+		return Math.floor(-remainTimeSec / 20) * 5;
+	}
+
+	private async syncSessionTimeBonusWithTeamCost(
+		matchId: string,
+		matchSessionId: number,
+		sessionCost: SessionCostEntity,
+	) {
+		const [teamCosts, matchState] = await Promise.all([
+			this.teamCostRepo.find({
+				where: {
+					matchSessionId,
+					sessionCostId: sessionCost.id,
+					isDeleted: false,
+				},
+				select: {
+					teamSide: true,
+					totalChamberTimeBonus: true,
+				},
+			}),
+			this.matchStateRepo.findOne({ where: { matchId } }),
+		]);
+
+		let blueTeamBonus = 0;
+		let redTeamBonus = 0;
+
+		for (const teamCost of teamCosts) {
+			const bonusValue = Number(teamCost.totalChamberTimeBonus ?? 0);
+			if (teamCost.teamSide === PlayerSide.BLUE) {
+				blueTeamBonus += bonusValue;
+			} else if (teamCost.teamSide === PlayerSide.RED) {
+				redTeamBonus += bonusValue;
+			}
+		}
+
+		const blueRemainTime = Number(matchState?.blueTimeRemain ?? 0);
+		const redRemainTime = Number(matchState?.redTimeRemain ?? 0);
+
+		sessionCost.blueTimeBonusCost =
+			blueTeamBonus + this.calculatePunishTime(blueRemainTime);
+		sessionCost.redTimeBonusCost =
+			redTeamBonus + this.calculatePunishTime(redRemainTime);
+
+		await this.sessionCostRepo.save(sessionCost);
+
+		this.socketMatchService.emitToMatch(
+			matchId,
+			SocketEvents.UPDATE_MATCH_SESSION,
+			{ matchSessionId },
+		);
+	}
+
 	private async recalculateChamberTeamCost(
 		matchId: string,
 		matchSessionId: number,
@@ -1507,10 +1766,27 @@ export class MatchService {
 		let totalLevelCost = 0;
 
 		for (const slot of slots) {
-			totalRefinementCost += slot.weaponRefinement ?? 0;
-			totalLevelCost += this.getCharacterLevelTimeCost(
-				slot.characterLevel ?? 0,
-			);
+			if (slot.weaponRefinement === 0.5) {
+				totalConstellationCost += 0.5;
+			}
+
+			if (slot.weaponRefinement >= 1) {
+				totalRefinementCost += slot.weaponRefinement - 1;
+				totalConstellationCost += 1;
+			}
+
+			const currentSlotCharacter = await this.characterRepo.findOne({
+				where: { id: slot.characterId },
+			});
+			if (
+				CHARACTER_LEVEL_COUNTED_LIST.includes(
+					currentSlotCharacter.key.toString().toLowerCase(),
+				)
+			) {
+				totalLevelCost += this.getCharacterLevelTimeCost(
+					slot.characterLevel ?? 0,
+				);
+			}
 
 			if (!slot.characterId) {
 				continue;
@@ -1540,6 +1816,11 @@ export class MatchService {
 			totalLevelCost;
 
 		await this.teamCostRepo.save(teamCost);
+		await this.syncSessionTimeBonusWithTeamCost(
+			matchId,
+			matchSessionId,
+			sessionCost,
+		);
 
 		this.socketMatchService.emitToMatch(
 			matchId,
@@ -1561,7 +1842,6 @@ export class MatchService {
 
 	@Transactional()
 	async completeCurrentSession(matchId: string) {
-		const hostId = this.cls.get("profile.id");
 		const match = await this.findOne(matchId, { isHost: true });
 		if ([MatchStatus.COMPLETED, MatchStatus.CANCELLED].includes(match.status)) {
 			throw new MatchAlreadyCompletedError();
@@ -1572,8 +1852,25 @@ export class MatchService {
 
 		await this.ensureSessionDataCompleted(currentSession.id, match.type);
 
+		if (match.type === MatchType.THREE_VS_THREE) {
+			await this.initializeThreeVsThreeTeamCosts(
+				match,
+				currentSession.id,
+				this.cls.get("profile.id"),
+			);
+		}
+
+		const currentSessionCost = await this.sessionCostRepo.findOne({
+			where: { matchSessionId: currentSession.id },
+		});
+
 		// Mark current session completed
+		currentSession.totalCostBlue = Number(
+			currentSessionCost?.blueTotalCost ?? 0,
+		);
+		currentSession.totalCostRed = Number(currentSessionCost?.redTotalCost ?? 0);
 		currentSession.sessionStatus = MatchSessionStatus.COMPLETED;
+		currentSession.startedAt = matchState.startedAt;
 		await this.matchSessionRepo.save(currentSession);
 
 		// Fetch all sessions and records to determine wins
@@ -1658,6 +1955,10 @@ export class MatchService {
 					{
 						currentSession: nextSession.id,
 						currentTurn: PlayerSide.BLUE,
+						pausedAt: null,
+						turnExpiredAt: null,
+						lastBlueTimeRemain: null,
+						lastRedTimeRemain: null,
 						blueBanChars: [],
 						blueSelectedChars: [],
 						blueSelectedWeapons: [],

@@ -1,5 +1,6 @@
 import { ColumnNames, TableNames } from "@db/db.constants";
 import {
+	AfterLoad,
 	Column,
 	Entity,
 	JoinColumn,
@@ -73,7 +74,9 @@ export class BanPickSlotEntity {
 
 	@Column({
 		name: ColumnNames.BanPickSlot.weaponRefinement,
-		type: "int",
+		type: "decimal",
+		precision: 7,
+		scale: 2,
 		nullable: true,
 	})
 	weaponRefinement: number;
@@ -108,4 +111,9 @@ export class BanPickSlotEntity {
 		nullable: true,
 	})
 	weaponSelectedAt: Date;
+
+	@AfterLoad()
+	afterLoad() {
+		this.weaponRefinement = Number(this.weaponRefinement);
+	}
 }

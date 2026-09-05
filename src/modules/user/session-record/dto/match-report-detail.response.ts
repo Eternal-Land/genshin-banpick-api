@@ -80,9 +80,6 @@ class MatchSessionReportItemResponse {
 	@ApiProperty({ enum: MatchSessionStatus })
 	sessionStatus: MatchSessionStatus;
 
-	@ApiProperty({ enum: PlayerSide })
-	currentTurn: PlayerSide;
-
 	@ApiProperty()
 	totalCostBlue: number;
 
@@ -217,10 +214,10 @@ export class MatchReportDetailResponse {
 			const cost = costsBySessionId.get(session.id) ?? null;
 			const teamBonus = teamTimeBonusBySessionId.get(session.id);
 			const blueTimeBonus = Number(
-				teamBonus?.blueTimeBonus ?? cost?.blueTimeBonusCost ?? 0,
+				cost?.blueTimeBonusCost ?? teamBonus?.blueTimeBonus ?? 0,
 			);
 			const redTimeBonus = Number(
-				teamBonus?.redTimeBonus ?? cost?.redTimeBonusCost ?? 0,
+				cost?.redTimeBonusCost ?? teamBonus?.redTimeBonus ?? 0,
 			);
 			const winnerSide = this.resolveWinner(
 				record,
@@ -236,7 +233,6 @@ export class MatchReportDetailResponse {
 				.matchSessionId(session.id)
 				.sessionIndex(session.sessionIndex)
 				.sessionStatus(session.sessionStatus)
-				.currentTurn(session.currentTurn)
 				.totalCostBlue(Number(session.totalCostBlue))
 				.totalCostRed(Number(session.totalCostRed))
 				.blueParticipant(

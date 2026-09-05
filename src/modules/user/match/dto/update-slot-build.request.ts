@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsInt, Min } from "class-validator";
+import { IsInt, IsNumber, Min } from "class-validator";
 
 export class UpdateSlotBuildRequest {
 	@ApiProperty()
@@ -18,7 +18,7 @@ export class UpdateSlotBuildRequest {
 	characterConstellation: number;
 
 	@ApiProperty()
-	@IsInt()
+	@IsNumber()
 	@Min(0)
 	weaponRefinement: number;
 
