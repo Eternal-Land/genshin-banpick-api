@@ -398,6 +398,7 @@ export class MatchService {
 	private async syncMatchStateWithCurrentSession(
 		match: MatchEntity,
 		matchState: MatchStateEntity,
+		turnStartedAt?: Date,
 	) {
 		const previousDraftStep = Math.min(
 			matchState.blueBanChars.length +
@@ -901,11 +902,13 @@ export class MatchService {
 	private async saveAndBroadcastMatchState(
 		matchId: string,
 		match: MatchEntity,
+		turnStartedAt?: Date,
 	) {
 		const matchState = await this.matchStateRepo.findOneOrCreate(matchId);
 		const savedMatchState = await this.syncMatchStateWithCurrentSession(
 			match,
 			matchState,
+			turnStartedAt,
 		);
 		this.socketMatchService.emitToMatch(
 			matchId,
@@ -1113,6 +1116,7 @@ export class MatchService {
 
 		await this.ensureCharacterNotUsedInSession(matchSession.id, charId);
 
+		const turnStartedAt = new Date();
 		await this.createBanPickSlot(
 			matchSession.id,
 			playerSide,
@@ -1123,6 +1127,7 @@ export class MatchService {
 		const savedMatchState = await this.saveAndBroadcastMatchState(
 			matchId,
 			match,
+			turnStartedAt,
 		);
 		await this.initializeThreeVsThreeTeamCostsIfDraftCompleted(
 			match,
@@ -1158,6 +1163,7 @@ export class MatchService {
 		await this.ensureCorrectTurn(matchState, match.type, playerSide);
 		await this.ensureCharacterNotUsedInSession(matchSession.id, charId);
 
+		const turnStartedAt = new Date();
 		await this.createBanPickSlot(
 			matchSession.id,
 			playerSide,
@@ -1168,6 +1174,7 @@ export class MatchService {
 		const savedMatchState = await this.saveAndBroadcastMatchState(
 			matchId,
 			match,
+			turnStartedAt,
 		);
 		await this.initializeThreeVsThreeTeamCostsIfDraftCompleted(
 			match,
