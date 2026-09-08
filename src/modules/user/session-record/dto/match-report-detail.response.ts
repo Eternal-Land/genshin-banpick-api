@@ -214,10 +214,10 @@ export class MatchReportDetailResponse {
 			const cost = costsBySessionId.get(session.id) ?? null;
 			const teamBonus = teamTimeBonusBySessionId.get(session.id);
 			const blueTimeBonus = Number(
-				cost?.blueTimeBonusCost ?? teamBonus?.blueTimeBonus ?? 0,
+				teamBonus?.blueTimeBonus ?? cost?.blueTimeBonusCost ?? 0,
 			);
 			const redTimeBonus = Number(
-				cost?.redTimeBonusCost ?? teamBonus?.redTimeBonus ?? 0,
+				teamBonus?.redTimeBonus ?? cost?.redTimeBonusCost ?? 0,
 			);
 			const winnerSide = this.resolveWinner(
 				record,
