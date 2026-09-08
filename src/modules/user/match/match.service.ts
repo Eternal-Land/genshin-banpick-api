@@ -1618,7 +1618,8 @@ export class MatchService {
 		const matchState = await this.matchStateRepo.findOneOrCreate(matchId);
 		const matchSession = await this.getCurrentMatchSession(match, matchState);
 		const playerSide = this.getPlayerSide(match, playerId);
-		if (playerSide === null) {
+		const isHost = this.isHost(match, playerId);
+		if (playerSide === null && !isHost) {
 			throw new MatchNotFoundError();
 		}
 
@@ -1627,7 +1628,6 @@ export class MatchService {
 		if (side) {
 			const normalizedPayloadSide =
 				side === "blue" ? PlayerSide.BLUE : PlayerSide.RED;
-			const isHost = this.isHost(match, playerId);
 			if (!isHost && playerSide !== normalizedPayloadSide) {
 				throw new BadRequestException(
 					"Cannot update. You are not host or side owner",
@@ -1635,6 +1635,8 @@ export class MatchService {
 			}
 
 			targetSide = normalizedPayloadSide;
+		} else if (targetSide === null) {
+			throw new BadRequestException("Side is required for host updates");
 		}
 
 		const normalizedSide = this.normalizePlayerSide(targetSide);
