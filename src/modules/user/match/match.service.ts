@@ -1514,7 +1514,7 @@ export class MatchService {
 		matchId: string,
 		teamSide: "blue" | "red",
 		chamberIndex: number,
-		accountId: string,
+		accountId: string | null,
 		isUsedStar: boolean,
 		playerId: string,
 	) {
@@ -1564,7 +1564,7 @@ export class MatchService {
 				sessionCostId: sessionCost.id,
 				teamSide: normalizedSide,
 				chamberIndex,
-				accountId,
+				accountId: accountId || null,
 				totalCharacterConstellationCost: 0,
 				totalWeaponRefinementCost: 0,
 				totalCharacterLevelCost: 0,
@@ -1573,7 +1573,7 @@ export class MatchService {
 			});
 
 		if (teamCost) {
-			teamCost.accountId = accountId;
+			teamCost.accountId = accountId || null;
 			teamCost.isUsedStar = isUsedStar;
 		}
 
