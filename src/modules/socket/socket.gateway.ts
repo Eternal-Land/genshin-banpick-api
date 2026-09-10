@@ -69,7 +69,7 @@ type UpdateTeamCostPayload = {
 	matchId?: string;
 	teamSide?: "blue" | "red";
 	chamberIndex?: number;
-	accountId?: string;
+	accountId?: string | null;
 	isUsedStar?: boolean;
 	updatedBy?: string;
 };
@@ -354,7 +354,7 @@ export class SocketGateway
 			!payload?.matchId ||
 			!payload?.teamSide ||
 			!Number.isInteger(payload?.chamberIndex) ||
-			!payload?.accountId ||
+			(typeof payload?.accountId !== "string" && payload?.accountId !== null) ||
 			typeof payload.isUsedStar !== "boolean"
 		) {
 			return { ok: false };
@@ -369,7 +369,7 @@ export class SocketGateway
 			payload.matchId,
 			payload.teamSide,
 			payload.chamberIndex,
-			payload.accountId,
+			payload.accountId ?? null,
 			payload.isUsedStar,
 			profileId,
 		);
