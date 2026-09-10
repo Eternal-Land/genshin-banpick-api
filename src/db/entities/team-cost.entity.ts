@@ -44,8 +44,8 @@ export class TeamCostEntity extends BaseAuditEntity {
 	@Column({ name: ColumnNames.TeamCost.chamberIndex, type: "int" })
 	chamberIndex: number;
 
-	@Column({ name: ColumnNames.TeamCost.accountId })
-	accountId: string;
+	@Column({ name: ColumnNames.TeamCost.accountId, nullable: true })
+	accountId: string | null;
 
 	@ManyToOne(() => AccountEntity, {
 		createForeignKeyConstraints: false,

@@ -70,7 +70,7 @@ class SessionStateTeamCostResponse {
 	chamberIndex: number;
 
 	@ApiProperty()
-	accountId: string;
+	accountId: string | null;
 
 	@ApiProperty()
 	totalCharacterConstellationCost: number;
