@@ -967,9 +967,6 @@ export class MatchService {
 		}
 
 		for (const teamSide of [PlayerSide.BLUE, PlayerSide.RED]) {
-			const defaultAccountId =
-				teamSide === PlayerSide.BLUE ? match.bluePlayerId : match.redPlayerId;
-
 			for (let chamberIndex = 1; chamberIndex <= 3; chamberIndex += 1) {
 				const existing = await this.teamCostRepo.findOne({
 					where: {
@@ -987,7 +984,7 @@ export class MatchService {
 							sessionCostId: sessionCost.id,
 							teamSide,
 							chamberIndex,
-							accountId: defaultAccountId,
+							accountId: null,
 							totalCharacterConstellationCost: 0,
 							totalWeaponRefinementCost: 0,
 							totalCharacterLevelCost: 0,
