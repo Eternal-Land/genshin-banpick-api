@@ -1683,7 +1683,8 @@ export class MatchService {
 			return 0;
 		}
 
-		return Math.floor(-remainTimeSec / 20) * 5;
+		// return Math.floor(-remainTimeSec / 20) * 5;
+		return 0;
 	}
 
 	private async syncSessionTimeBonusWithTeamCost(
